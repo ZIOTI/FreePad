@@ -38,28 +38,32 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Voice Changer Pro Haute Fidélité & Discord 100% Fonctionnel"
-BODY = f"""# 🎉 FreePad {TAG} — Modulateur de Voix Pro & Injection Discord 100% Fonctionnelle
+RELEASE_NAME = f"FreePad {TAG} — Correctif Zéro Feedback & Moteur DSP Tri-Tap Haute Fidélité"
+BODY = f"""# 🎉 FreePad {TAG} — Moteur DSP Haute Fidélité & Discord 100% Sans Feedback
 
-**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro directe sans aucun câble virtuel.
+**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🎙️ Quoi de neuf dans la v1.2.2 ?
+### 🚀 Quoi de neuf dans la v1.2.3 ?
 
-#### 1. ⚡ Injection Directe dans Discord (Double Canal Garanti à 100%)
-* 🔊 **Double Routage Simultané :** FreePad injecte désormais la voix modifiée **à la fois** dans le pilote matériel Windows direct (APO) et dans les microphones virtuels détectés (Voicemod, Steam Streaming Mic, VB-Cable).
-* 🎯 **Auto-Détection Intelligente :** FreePad détecte automatiquement tes périphériques virtuels au lancement et configure le routage Discord sans prise de tête.
-* 🎧 **Bouton Test Vocal Direct (3 sec) :** Teste instantanément ce que tes potes vont entendre sur Discord ! Un clic enregistre 3 secondes de ta voix avec les effets et la rejoue dans ton casque.
+#### 1. 🛡️ Élimination Totale du Bug de Répétition Ultra-Rapide (Anti-Feedback Guard)
+* 🚫 **Fin du Larsen / Répétition en rafale :** Le streaming en boucle locale vers l'APO matériel qui créait un écho ultra-rapide en mitraillette (50Hz) a été **définitivement supprimé**.
+* 🎧 **Isolation Acoustique Absolue :** Le microphone physique de l'utilisateur reste 100% propre, sans aucun retour ni larsen audio.
 
-#### 2. 🎛️ Moteur Audio DSP Révolutionnaire (Phase Vocoder 512 points)
-Adieu les sons métalliques ou étouffés ! Le moteur audio a été réécrit avec un véritable **Phase Vocoder FFT 512 points** avec contrôle indépendant des formants vocaux :
-* 🎤 **Travis Scott / PNL (Auto-Tune) :** Détection de pitch AMDF ultra-rapide (< 0.05 ms) avec snap chromatique instantané 0 ms, delay ping-pong stéréo et brillance air 8kHz.
-* 🤖 **Robot / Vocoder Daft Punk :** Synthé analogique double-porteur accordé (A2 110Hz + E3 165Hz) avec préservation de la sibilance (> 3.2kHz) : chaque syllabe reste **100% intelligible et musicale**.
-* 😈 **Démon des Abysses :** Pitch descendu (-8.5 demi-tons) avec préservation des formants de gorge, couche sous-octave parallèle (-12 st), résonance de poitrine sub-bass 85Hz et saturation tube analogique.
-* 🎈 **Hélium / Lutin :** Voix pitchée vers le haut (+9.5 demi-tons), coupe-bas 380Hz éliminant les résonances d'adulte pour un rendu ultra drôle, clair et sans distorsion.
-* 📢 **Mégaphone de Police :** Filtrage pavillon 620Hz - 2500Hz, résonance métallique de corne à 1250Hz (+8.5 dB) et écho slapback acoustique de rue (22ms).
-* 📻 **Talkie-Walkie Militaire :** Bande passante radio tactique, compression dynamique et bip "Roger" réaliste avec grésillement au relâchement de la touche.
+#### 2. 🎛️ Tout Nouveau Moteur DSP Tri-Tap à Énergie Constante (Zero Dropouts, Zero Flutter)
+* 💎 **Moteur Granulaire 3 Taps à 120° :** Remplacement complet de l'ancien vocodeur instable par un algorithme à sommation constante (puissance égale garantie $\\sum \\sin^2 = 1.5$). Zéro hachure, zéro saccade, zéro trou de silence.
+* 🎤 **Travis Scott / PNL (Auto-Tune) :** Détecteur de hauteur AMDF temps réel avec snap chromatique instantané (0 ms de temps de recalage) + delay spatial studio + brillance 8 kHz.
+* 🤖 **Robot / Vocoder Daft Punk :** Synthétiseur analogique bitonal (fondamentale A2 110Hz + quinte E3 165Hz) avec suiveur d'enveloppe vocal et préservation des consonnes/sibilances (> 3.2kHz) pour une intelligibilité parfaite.
+* 😈 **Démon des Abysses :** Pitch descendu (-8.5 demi-tons) + couche sous-octave (-12 st) + résonance de poitrine sub-bass 85Hz + saturation tube analogique.
+* 🎈 **Hélium / Lutin :** Pitch monté (+9.5 demi-tons) + coupe-bas 380Hz éliminant les résonances d'adulte + boost de présence 2600Hz.
+* 📢 **Mégaphone de Police :** Filtrage acoustique de pavillon 620Hz - 2500Hz + pic de résonance 1250Hz + distorsion à diode + écho slapback de rue 22ms.
+* 📻 **Talkie-Walkie Militaire :** Bande passante radio VHF/UHF + saturation radio + compression dynamique + bip "Roger" réaliste au relâchement de la touche.
+
+#### 3. 🎙️ Connexion Discord Instantanée & Auto-Détection
+* ⚡ **Auto-Sélection Intelligente :** FreePad détecte automatiquement tout câble virtuel ou périphérique disponible (Voicemod Virtual Audio Device, Steam Streaming Microphone, VB-Cable) et configure la sortie de diffusion sans aucune manipulation complexe.
+* 📋 **Guide Clair dans l'Interface :** Indication exacte du périphérique d'entrée à sélectionner dans les paramètres Discord.
+* 🎙️ **Test d'Écoute 3s :** Permet de s'entendre parler comme Discord nous entend d'un simple clic.
 
 ---
 

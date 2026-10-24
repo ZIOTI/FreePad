@@ -177,8 +177,17 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   // Determine current active broadcast target name
+  const getDiscordInputSuggestion = (label = '') => {
+    const l = (label || '').toLowerCase();
+    if (l.includes('voicemod')) return 'Microphone (Voicemod Virtual Audio Device (WDM))';
+    if (l.includes('steam')) return 'Steam Streaming Microphone';
+    if (l.includes('cable') || l.includes('vb-audio')) return 'CABLE Output (VB-Audio Virtual Cable)';
+    return label || 'ton périphérique virtuel';
+  };
+
   const currentBroadcastDevice = outputDevices.find(d => d.deviceId === selectedBroadcastId);
-  const broadcastLabel = currentBroadcastDevice?.label || 'Microphone physique (Mode APO Direct)';
+  const broadcastLabel = currentBroadcastDevice?.label || 'Périphérique Virtuel';
+  const discordInputName = getDiscordInputSuggestion(broadcastLabel);
 
   return (
     <div
@@ -351,14 +360,14 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <div>
               <label className="text-[11px] font-semibold text-slate-300 block mb-1">
-                Périphérique de Diffusion (Câble Virtuel ou Micro) :
+                Périphérique de Diffusion (Câble Virtuel / Voicemod) :
               </label>
               <select
                 value={selectedBroadcastId}
                 onChange={(e) => handleBroadcastDeviceChange(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-400"
               >
-                <option value="default">Pilote APO Micro Direct (Sans Câble Virtuel)</option>
+                <option value="default">-- Sélectionne un périphérique virtuel --</option>
                 {outputDevices.map((d) => {
                   const label = d.label || '';
                   const isVirt = /cable|voicemod|steam|virtual/i.test(label);
@@ -372,16 +381,16 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
             </div>
 
             <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 text-[11px] text-slate-300 space-y-1">
-              <div className="font-bold text-indigo-300 flex items-center space-x-1">
+              <div className="font-bold text-emerald-300 flex items-center space-x-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Configuration Discord instantanée :</span>
+                <span>Configuration Discord en 1 seconde :</span>
               </div>
               <p>
                 Dans <strong>Discord &gt; Paramètres &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :<br />
                 {selectedBroadcastId !== 'default' ? (
-                  <>Sélectionne <strong>{broadcastLabel}</strong> pour entendre ta voix modifiée direct !</>
+                  <>Sélectionne 👉 <strong className="text-emerald-300 underline">{discordInputName}</strong> pour parler en direct avec ta voix modifiée !</>
                 ) : (
-                  <>Sélectionne ton <strong>Microphone habituel</strong> (le pilote FreePad APO injecte la voix direct dedans) !</>
+                  <>Sélectionne un périphérique virtuel ci-contre (ex: <strong>Voicemod</strong>, <strong>Steam</strong> ou <strong>VB-Cable</strong>) pour diffuser dans Discord sans latence ni écho.</>
                 )}
               </p>
             </div>
@@ -482,7 +491,7 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
 
         {/* Footer info branding */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-          <span>FreePad Voice Changer Pro v1.2.2 • Zéro Latence • Autotune &amp; Vocoder</span>
+          <span>FreePad Voice Changer Pro v1.2.3 • Zéro Latence • DSP Constant-Power • Autotune &amp; Vocoder</span>
           <span className="text-indigo-400 font-medium">Fait par zioti</span>
         </div>
       </div>

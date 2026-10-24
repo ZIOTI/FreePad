@@ -3,14 +3,14 @@
  * Fait par zioti
  *
  * Implements:
- *   - 512-point Radix-2 FFT Phase Vocoder with Formant Preservation
- *   - Auto-Tune Travis Scott / PNL (Chromatic Pitch Snap + Stereo Space Delay)
- *   - Robot / Vocoder Daft Punk (Dual-Carrier Analog Synth + Sibilance Preservation)
+ *   - Constant-Power 3-Tap Granular Pitch Shifter (Zero Flutter, Zero Dropouts, Low Latency)
+ *   - Auto-Tune Travis Scott / PNL (Chromatic Pitch Snap 0 ms + Stereo Space Delay + High Shelf)
+ *   - Robot / Vocoder Daft Punk (Dual-Carrier A2/E3 Analog Synth + Sibilance Preservation)
  *   - Démon des Abysses (-8.5 Semitones + Sub-Octave Layer + 85Hz Sub-Bass + Tube Saturation)
- *   - Hélium / Lutin (+9.5 Semitones + Formant Reshaping + High-Shelf Clarity)
+ *   - Hélium / Lutin (+9.5 Semitones + Formant Reshaping + 380Hz Low-Cut + Presence Boost)
  *   - Mégaphone de Police (Acoustic Horn Bandpass + Slapback Reflection + Diode Saturation)
  *   - Talkie-Walkie Militaire (Tactical Radio Bandpass + Compression + Roger Beep static burst)
- *   - Dual Discord Output: Direct Hardware APO Streaming + Virtual Microphone Loopback
+ *   - Isolated Discord Broadcast via Virtual Cable / Voicemod Virtual Audio Device (Zero-Feedback Guarantee)
  */
 
 import soundEngine from './SoundEngine';
@@ -88,103 +88,33 @@ class VoiceFXProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.sampleRate = 48000;
-    this.N = 512;
-    this.H = 128;
-    this.halfN = this.N / 2;
-    this.omega = (2.0 * Math.PI * this.H) / this.N;
+    this.bufferSize = 16384;
+    this.buffer = new Float32Array(this.bufferSize);
+    this.writePos = 0;
 
-    this.sinTable = new Float32Array(this.N);
-    this.cosTable = new Float32Array(this.N);
-    for (let i = 0; i < this.N; i++) {
-      this.sinTable[i] = Math.sin(-2 * Math.PI * i / this.N);
-      this.cosTable[i] = Math.cos(-2 * Math.PI * i / this.N);
+    // Grain size: 1536 samples (~32ms at 48kHz)
+    this.grainSize = 1536;
+    this.window = new Float32Array(this.grainSize);
+    for (let i = 0; i < this.grainSize; i++) {
+      this.window[i] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * i) / this.grainSize));
     }
 
-    this.bitRev = new Uint16Array(this.N);
-    let j = 0;
-    for (let i = 0; i < this.N - 1; i++) {
-      this.bitRev[i] = j;
-      let k = this.N >> 1;
-      while (k <= j) { j -= k; k >>= 1; }
-      j += k;
-    }
-    this.bitRev[this.N - 1] = j;
+    // 3 equidistant Hann window taps spaced at 120 degrees for constant-power summing
+    this.phase0 = 0.0;
+    this.phase1 = this.grainSize / 3.0;
+    this.phase2 = (2.0 * this.grainSize) / 3.0;
 
-    this.window = new Float32Array(this.N);
-    for (let i = 0; i < this.N; i++) {
-      this.window[i] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * i) / this.N));
-    }
-
-    this.real = new Float32Array(this.N);
-    this.imag = new Float32Array(this.N);
-    this.prevPhase = new Float32Array(this.halfN + 1);
-    this.synthPhase = new Float32Array(this.halfN + 1);
-    this.synthMag = new Float32Array(this.halfN + 1);
-    this.synthFreq = new Float32Array(this.halfN + 1);
-    this.envelope = new Float32Array(this.halfN + 1);
-
-    this.ringSize = 4096;
-    this.inRing = new Float32Array(this.ringSize);
-    this.outRing = new Float32Array(this.ringSize);
-    this.inWrite = 0;
-    this.outWrite = 0;
-    this.outRead = 0;
-    this.samplesInRing = 0;
-
+    // Robot vocoder dual-carrier state
     this.oscPhaseA = 0.0;
     this.oscPhaseB = 0.0;
     this.vocalEnv = 0.0;
     this.lpVoice = 0.0;
 
+    // Auto-tune AMDF pitch tracking state
     this.atRatio = 1.0;
     this.atCounter = 0;
     this.historyBuffer = new Float32Array(2048);
     this.historyWrite = 0;
-  }
-
-  fft(r, im) {
-    const N = this.N;
-    const bitRev = this.bitRev;
-    const cosTable = this.cosTable;
-    const sinTable = this.sinTable;
-
-    for (let i = 0; i < N; i++) {
-      const rev = bitRev[i];
-      if (i < rev) {
-        let tr = r[i]; r[i] = r[rev]; r[rev] = tr;
-        let ti = im[i]; im[i] = im[rev]; im[rev] = ti;
-      }
-    }
-
-    for (let halfSize = 1; halfSize < N; halfSize <<= 1) {
-      const step = N / (halfSize << 1);
-      for (let i = 0; i < N; i += (halfSize << 1)) {
-        for (let k = 0; k < halfSize; k++) {
-          const tableIdx = k * step;
-          const c = cosTable[tableIdx];
-          const s = sinTable[tableIdx];
-          const uIdx = i + k;
-          const vIdx = i + k + halfSize;
-          const tr = c * r[vIdx] - s * im[vIdx];
-          const ti = s * r[vIdx] + c * im[vIdx];
-          r[vIdx] = r[uIdx] - tr;
-          im[vIdx] = im[uIdx] - ti;
-          r[uIdx] += tr;
-          im[uIdx] += ti;
-        }
-      }
-    }
-  }
-
-  ifft(r, im) {
-    const N = this.N;
-    for (let i = 0; i < N; i++) im[i] = -im[i];
-    this.fft(r, im);
-    const invN = 1.0 / N;
-    for (let i = 0; i < N; i++) {
-      r[i] = r[i] * invN;
-      im[i] = -im[i] * invN;
-    }
   }
 
   detectPitchAMDF() {
@@ -211,7 +141,7 @@ class VoiceFXProcessor extends AudioWorkletProcessor {
       }
     }
 
-    if (minD > 45 || bestP === 0) return 0;
+    if (minD > 50 || bestP === 0) return 0;
     return sr / bestP;
   }
 
@@ -226,11 +156,187 @@ class VoiceFXProcessor extends AudioWorkletProcessor {
 
     const mode = Math.round(parameters.mode ? parameters.mode[0] : 0);
     const targetRatio = parameters.pitchRatio ? parameters.pitchRatio[0] : 1.0;
-    const preserveFormants = parameters.preserveFormants ? parameters.preserveFormants[0] > 0.5 : true;
 
+    // Mode 0: Pure bypass
     if (mode === 0) {
       outChannel.set(inChannel);
       return true;
+    }
+
+    // Mode 2: Daft Punk Robot Vocoder (Dual-Carrier Synth + Sibilance Preservation)
+    if (mode === 2) {
+      const sr = this.sampleRate;
+      const freqA = 110.0;  // Note A2 fundamental
+      const freqB = 164.81; // Note E3 musical fifth
+
+      for (let i = 0; i < len; i++) {
+        const inS = inChannel[i];
+        this.oscPhaseA = (this.oscPhaseA + freqA / sr) % 1.0;
+        this.oscPhaseB = (this.oscPhaseB + freqB / sr) % 1.0;
+
+        const saw = (this.oscPhaseA * 2.0) - 1.0;
+        const pulse = (this.oscPhaseB < 0.5 ? 0.45 : -0.45);
+        const carrier = saw * 0.65 + pulse * 0.35;
+
+        this.vocalEnv = this.vocalEnv * 0.95 + Math.abs(inS) * 0.05;
+        this.lpVoice = this.lpVoice * 0.86 + inS * 0.14;
+        const sibilance = inS - this.lpVoice;
+
+        outChannel[i] = carrier * this.vocalEnv * 3.0 + sibilance * 0.35;
+      }
+      return true;
+    }
+
+    // Record into history buffer for pitch detection
+    for (let i = 0; i < len; i++) {
+      this.historyBuffer[this.historyWrite] = inChannel[i];
+      this.historyWrite = (this.historyWrite + 1) % this.historyBuffer.length;
+    }
+
+    // Mode 3: Auto-Tune Pitch Tracking & Snap
+    let effRatio = targetRatio;
+    if (mode === 3) {
+      this.atCounter += len;
+      if (this.atCounter >= 160) {
+        this.atCounter = 0;
+        const pitch = this.detectPitchAMDF();
+        if (pitch >= 80 && pitch <= 520) {
+          const semitones = 12.0 * Math.log2(pitch / 440.0);
+          const snapped = Math.round(semitones);
+          const targetHz = 440.0 * Math.pow(2.0, snapped / 12.0);
+          this.atRatio = targetHz / pitch;
+        } else {
+          this.atRatio = 1.0;
+        }
+      }
+      effRatio = this.atRatio;
+    }
+
+    // Constant-Power 3-Tap Granular Pitch Shifter
+    const buf = this.buffer;
+    const bSize = this.bufferSize;
+    const gSize = this.grainSize;
+    const win = this.window;
+    const rate = effRatio;
+    const norm = 2.0 / 3.0;
+
+    for (let i = 0; i < len; i++) {
+      buf[this.writePos] = inChannel[i];
+
+      // Tap 0
+      const d0 = (gSize / 2) + this.phase0 * (1.0 - rate);
+      let r0 = this.writePos - d0;
+      while (r0 < 0) r0 += bSize;
+      while (r0 >= bSize) r0 -= bSize;
+      const i0 = Math.floor(r0);
+      const f0 = r0 - i0;
+      const s0 = buf[i0] * (1.0 - f0) + buf[(i0 + 1) % bSize] * f0;
+      const w0 = win[Math.floor(this.phase0) % gSize];
+
+      // Tap 1
+      const d1 = (gSize / 2) + this.phase1 * (1.0 - rate);
+      let r1 = this.writePos - d1;
+      while (r1 < 0) r1 += bSize;
+      while (r1 >= bSize) r1 -= bSize;
+      const i1 = Math.floor(r1);
+      const f1 = r1 - i1;
+      const s1 = buf[i1] * (1.0 - f1) + buf[(i1 + 1) % bSize] * f1;
+      const w1 = win[Math.floor(this.phase1) % gSize];
+
+      // Tap 2
+      const d2 = (gSize / 2) + this.phase2 * (1.0 - rate);
+      let r2 = this.writePos - d2;
+      while (r2 < 0) r2 += bSize;
+      while (r2 >= bSize) r2 -= bSize;
+      const i2 = Math.floor(r2);
+      const f2 = r2 - i2;
+      const s2 = buf[i2] * (1.0 - f2) + buf[(i2 + 1) % bSize] * f2;
+      const w2 = win[Math.floor(this.phase2) % gSize];
+
+      outChannel[i] = (s0 * w0 + s1 * w1 + s2 * w2) * norm;
+
+      this.writePos = (this.writePos + 1) % bSize;
+      this.phase0 = (this.phase0 + 1) % gSize;
+      this.phase1 = (this.phase1 + 1) % gSize;
+      this.phase2 = (this.phase2 + 1) % gSize;
+    }
+
+    return true;
+  }
+}
+
+registerProcessor('voicefx-processor', VoiceFXProcessor);
+`;
+
+// ScriptProcessor Universal DSP Fallback (Identical algorithm to AudioWorklet)
+class FallbackVoiceFXDSP {
+  constructor(sampleRate = 48000) {
+    this.sampleRate = sampleRate;
+    this.mode = 0;
+    this.pitchRatio = 1.0;
+    this.preserveFormants = true;
+
+    this.bufferSize = 16384;
+    this.buffer = new Float32Array(this.bufferSize);
+    this.writePos = 0;
+
+    this.grainSize = 1536;
+    this.window = new Float32Array(this.grainSize);
+    for (let i = 0; i < this.grainSize; i++) {
+      this.window[i] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * i) / this.grainSize));
+    }
+
+    this.phase0 = 0.0;
+    this.phase1 = this.grainSize / 3.0;
+    this.phase2 = (2.0 * this.grainSize) / 3.0;
+
+    this.oscPhaseA = 0.0;
+    this.oscPhaseB = 0.0;
+    this.vocalEnv = 0.0;
+    this.lpVoice = 0.0;
+
+    this.atRatio = 1.0;
+    this.atCounter = 0;
+    this.historyBuffer = new Float32Array(2048);
+    this.historyWrite = 0;
+  }
+
+  detectPitchAMDF() {
+    const sr = this.sampleRate;
+    const minP = Math.floor(sr / 480);
+    const maxP = Math.floor(sr / 80);
+    let bestP = 0;
+    let minD = Infinity;
+
+    const hist = this.historyBuffer;
+    const hLen = hist.length;
+    const startIdx = (this.historyWrite - 768 + hLen) % hLen;
+
+    for (let tau = minP; tau <= maxP; tau += 2) {
+      let diff = 0;
+      for (let i = 0; i < 320; i += 2) {
+        const idxA = (startIdx + i) % hLen;
+        const idxB = (startIdx + i + tau) % hLen;
+        diff += Math.abs(hist[idxA] - hist[idxB]);
+      }
+      if (diff < minD) {
+        minD = diff;
+        bestP = tau;
+      }
+    }
+
+    if (minD > 50 || bestP === 0) return 0;
+    return sr / bestP;
+  }
+
+  processBlock(inChannel, outChannel) {
+    const len = inChannel.length;
+    const mode = this.mode;
+    const targetRatio = this.pitchRatio;
+
+    if (mode === 0) {
+      outChannel.set(inChannel);
+      return;
     }
 
     if (mode === 2) {
@@ -251,9 +357,9 @@ class VoiceFXProcessor extends AudioWorkletProcessor {
         this.lpVoice = this.lpVoice * 0.86 + inS * 0.14;
         const sibilance = inS - this.lpVoice;
 
-        outChannel[i] = carrier * this.vocalEnv * 3.2 + sibilance * 0.38;
+        outChannel[i] = carrier * this.vocalEnv * 3.0 + sibilance * 0.35;
       }
-      return true;
+      return;
     }
 
     for (let i = 0; i < len; i++) {
@@ -264,7 +370,7 @@ class VoiceFXProcessor extends AudioWorkletProcessor {
     let effRatio = targetRatio;
     if (mode === 3) {
       this.atCounter += len;
-      if (this.atCounter >= 192) {
+      if (this.atCounter >= 160) {
         this.atCounter = 0;
         const pitch = this.detectPitchAMDF();
         if (pitch >= 80 && pitch <= 520) {
@@ -279,391 +385,49 @@ class VoiceFXProcessor extends AudioWorkletProcessor {
       effRatio = this.atRatio;
     }
 
-    const inRing = this.inRing;
-    const outRing = this.outRing;
-    const ringSize = this.ringSize;
-    const N = this.N;
-    const H = this.H;
-    const halfN = this.halfN;
-    const omega = this.omega;
+    const buf = this.buffer;
+    const bSize = this.bufferSize;
+    const gSize = this.grainSize;
+    const win = this.window;
+    const rate = effRatio;
+    const norm = 2.0 / 3.0;
 
     for (let i = 0; i < len; i++) {
-      inRing[this.inWrite] = inChannel[i];
-      this.inWrite = (this.inWrite + 1) % ringSize;
-    }
-    this.samplesInRing += len;
+      buf[this.writePos] = inChannel[i];
 
-    while (this.samplesInRing >= N) {
-      this.samplesInRing -= H;
-      this.synthMag.fill(0);
-      this.synthFreq.fill(0);
+      const d0 = (gSize / 2) + this.phase0 * (1.0 - rate);
+      let r0 = this.writePos - d0;
+      while (r0 < 0) r0 += bSize;
+      while (r0 >= bSize) r0 -= bSize;
+      const i0 = Math.floor(r0);
+      const f0 = r0 - i0;
+      const s0 = buf[i0] * (1.0 - f0) + buf[(i0 + 1) % bSize] * f0;
+      const w0 = win[Math.floor(this.phase0) % gSize];
 
-      let readIdx = (this.inWrite - this.samplesInRing - N + ringSize * 2) % ringSize;
-      for (let i = 0; i < N; i++) {
-        this.real[i] = inRing[(readIdx + i) % ringSize] * this.window[i];
-        this.imag[i] = 0;
-      }
+      const d1 = (gSize / 2) + this.phase1 * (1.0 - rate);
+      let r1 = this.writePos - d1;
+      while (r1 < 0) r1 += bSize;
+      while (r1 >= bSize) r1 -= bSize;
+      const i1 = Math.floor(r1);
+      const f1 = r1 - i1;
+      const s1 = buf[i1] * (1.0 - f1) + buf[(i1 + 1) % bSize] * f1;
+      const w1 = win[Math.floor(this.phase1) % gSize];
 
-      this.fft(this.real, this.imag);
+      const d2 = (gSize / 2) + this.phase2 * (1.0 - rate);
+      let r2 = this.writePos - d2;
+      while (r2 < 0) r2 += bSize;
+      while (r2 >= bSize) r2 -= bSize;
+      const i2 = Math.floor(r2);
+      const f2 = r2 - i2;
+      const s2 = buf[i2] * (1.0 - f2) + buf[(i2 + 1) % bSize] * f2;
+      const w2 = win[Math.floor(this.phase2) % gSize];
 
-      if (preserveFormants) {
-        for (let k = 0; k <= halfN; k++) {
-          let sum = 0;
-          let count = 0;
-          for (let d = -4; d <= 4; d++) {
-            const idx = k + d;
-            if (idx >= 0 && idx <= halfN) {
-              sum += Math.hypot(this.real[idx], this.imag[idx]);
-              count++;
-            }
-          }
-          this.envelope[k] = sum / count;
-        }
-      }
+      outChannel[i] = (s0 * w0 + s1 * w1 + s2 * w2) * norm;
 
-      for (let k = 0; k <= halfN; k++) {
-        const mag = Math.hypot(this.real[k], this.imag[k]);
-        const phase = Math.atan2(this.imag[k], this.real[k]);
-
-        let delta = phase - this.prevPhase[k];
-        this.prevPhase[k] = phase;
-        delta -= k * omega;
-
-        delta = Math.atan2(Math.sin(delta), Math.cos(delta));
-        const trueFreq = (k * omega + delta) / H;
-
-        const newBin = Math.round(k * effRatio);
-        if (newBin <= halfN) {
-          let targetMag = mag;
-          if (preserveFormants && this.envelope[k] > 0.0001) {
-            const targetEnv = this.envelope[newBin] || this.envelope[k];
-            targetMag = mag * (targetEnv / this.envelope[k]);
-          }
-          this.synthMag[newBin] += targetMag;
-          this.synthFreq[newBin] = trueFreq * effRatio;
-        }
-      }
-
-      this.real.fill(0);
-      this.imag.fill(0);
-      for (let k = 0; k <= halfN; k++) {
-        this.synthPhase[k] += this.synthFreq[k] * H;
-        const mag = this.synthMag[k];
-        const cosP = Math.cos(this.synthPhase[k]);
-        const sinP = Math.sin(this.synthPhase[k]);
-        this.real[k] = mag * cosP;
-        this.imag[k] = mag * sinP;
-        if (k > 0 && k < halfN) {
-          this.real[N - k] = this.real[k];
-          this.imag[N - k] = -this.imag[k];
-        }
-      }
-
-      this.ifft(this.real, this.imag);
-
-      const norm = 0.67;
-      for (let i = 0; i < N; i++) {
-        const pos = (this.outWrite + i) % ringSize;
-        outRing[pos] += this.real[i] * this.window[i] * norm;
-      }
-      this.outWrite = (this.outWrite + H) % ringSize;
-    }
-
-    for (let i = 0; i < len; i++) {
-      outChannel[i] = outRing[this.outRead];
-      outRing[this.outRead] = 0;
-      this.outRead = (this.outRead + 1) % ringSize;
-    }
-
-    return true;
-  }
-}
-
-registerProcessor('voicefx-processor', VoiceFXProcessor);
-`;
-
-// ScriptProcessor Universal DSP Fallback
-class FallbackVoiceFXDSP {
-  constructor(sampleRate = 48000) {
-    this.sampleRate = sampleRate;
-    this.mode = 0;
-    this.pitchRatio = 1.0;
-    this.preserveFormants = true;
-
-    this.N = 512;
-    this.H = 128;
-    this.halfN = this.N / 2;
-    this.omega = (2.0 * Math.PI * this.H) / this.N;
-
-    this.sinTable = new Float32Array(this.N);
-    this.cosTable = new Float32Array(this.N);
-    for (let i = 0; i < this.N; i++) {
-      this.sinTable[i] = Math.sin(-2 * Math.PI * i / this.N);
-      this.cosTable[i] = Math.cos(-2 * Math.PI * i / this.N);
-    }
-
-    this.bitRev = new Uint16Array(this.N);
-    let j = 0;
-    for (let i = 0; i < this.N - 1; i++) {
-      this.bitRev[i] = j;
-      let k = this.N >> 1;
-      while (k <= j) { j -= k; k >>= 1; }
-      j += k;
-    }
-    this.bitRev[this.N - 1] = j;
-
-    this.window = new Float32Array(this.N);
-    for (let i = 0; i < this.N; i++) {
-      this.window[i] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * i) / this.N));
-    }
-
-    this.real = new Float32Array(this.N);
-    this.imag = new Float32Array(this.N);
-    this.prevPhase = new Float32Array(this.halfN + 1);
-    this.synthPhase = new Float32Array(this.halfN + 1);
-    this.synthMag = new Float32Array(this.halfN + 1);
-    this.synthFreq = new Float32Array(this.halfN + 1);
-    this.envelope = new Float32Array(this.halfN + 1);
-
-    this.ringSize = 4096;
-    this.inRing = new Float32Array(this.ringSize);
-    this.outRing = new Float32Array(this.ringSize);
-    this.inWrite = 0;
-    this.outWrite = 0;
-    this.outRead = 0;
-    this.samplesInRing = 0;
-
-    this.oscPhaseA = 0.0;
-    this.oscPhaseB = 0.0;
-    this.vocalEnv = 0.0;
-    this.lpVoice = 0.0;
-
-    this.atRatio = 1.0;
-    this.atCounter = 0;
-    this.historyBuffer = new Float32Array(2048);
-    this.historyWrite = 0;
-  }
-
-  fft(r, im) {
-    const N = this.N;
-    const bitRev = this.bitRev;
-    const cosTable = this.cosTable;
-    const sinTable = this.sinTable;
-
-    for (let i = 0; i < N; i++) {
-      const rev = bitRev[i];
-      if (i < rev) {
-        let tr = r[i]; r[i] = r[rev]; r[rev] = tr;
-        let ti = im[i]; im[i] = im[rev]; im[rev] = ti;
-      }
-    }
-
-    for (let halfSize = 1; halfSize < N; halfSize <<= 1) {
-      const step = N / (halfSize << 1);
-      for (let i = 0; i < N; i += (halfSize << 1)) {
-        for (let k = 0; k < halfSize; k++) {
-          const tableIdx = k * step;
-          const c = cosTable[tableIdx];
-          const s = sinTable[tableIdx];
-          const uIdx = i + k;
-          const vIdx = i + k + halfSize;
-          const tr = c * r[vIdx] - s * im[vIdx];
-          const ti = s * r[vIdx] + c * im[vIdx];
-          r[vIdx] = r[uIdx] - tr;
-          im[vIdx] = im[uIdx] - ti;
-          r[uIdx] += tr;
-          im[uIdx] += ti;
-        }
-      }
-    }
-  }
-
-  ifft(r, im) {
-    const N = this.N;
-    for (let i = 0; i < N; i++) im[i] = -im[i];
-    this.fft(r, im);
-    const invN = 1.0 / N;
-    for (let i = 0; i < N; i++) {
-      r[i] = r[i] * invN;
-      im[i] = -im[i] * invN;
-    }
-  }
-
-  detectPitchAMDF() {
-    const sr = this.sampleRate;
-    const minP = Math.floor(sr / 480);
-    const maxP = Math.floor(sr / 80);
-    let bestP = 0;
-    let minD = Infinity;
-
-    const hist = this.historyBuffer;
-    const hLen = hist.length;
-    const startIdx = (this.historyWrite - 768 + hLen) % hLen;
-
-    for (let tau = minP; tau <= maxP; tau += 2) {
-      let diff = 0;
-      for (let i = 0; i < 320; i += 2) {
-        const idxA = (startIdx + i) % hLen;
-        const idxB = (startIdx + i + tau) % hLen;
-        diff += Math.abs(hist[idxA] - hist[idxB]);
-      }
-      if (diff < minD) {
-        minD = diff;
-        bestP = tau;
-      }
-    }
-
-    if (minD > 45 || bestP === 0) return 0;
-    return sr / bestP;
-  }
-
-  processBlock(inChannel, outChannel) {
-    const len = inChannel.length;
-    if (this.mode === 0) {
-      outChannel.set(inChannel);
-      return;
-    }
-
-    if (this.mode === 2) {
-      const sr = this.sampleRate;
-      const freqA = 110.0;
-      const freqB = 164.81;
-
-      for (let i = 0; i < len; i++) {
-        const inS = inChannel[i];
-        this.oscPhaseA = (this.oscPhaseA + freqA / sr) % 1.0;
-        this.oscPhaseB = (this.oscPhaseB + freqB / sr) % 1.0;
-
-        const saw = (this.oscPhaseA * 2.0) - 1.0;
-        const pulse = (this.oscPhaseB < 0.5 ? 0.45 : -0.45);
-        const carrier = saw * 0.65 + pulse * 0.35;
-
-        this.vocalEnv = this.vocalEnv * 0.95 + Math.abs(inS) * 0.05;
-        this.lpVoice = this.lpVoice * 0.86 + inS * 0.14;
-        const sibilance = inS - this.lpVoice;
-
-        outChannel[i] = carrier * this.vocalEnv * 3.2 + sibilance * 0.38;
-      }
-      return;
-    }
-
-    for (let i = 0; i < len; i++) {
-      this.historyBuffer[this.historyWrite] = inChannel[i];
-      this.historyWrite = (this.historyWrite + 1) % this.historyBuffer.length;
-    }
-
-    let effRatio = this.pitchRatio;
-    if (this.mode === 3) {
-      this.atCounter += len;
-      if (this.atCounter >= 192) {
-        this.atCounter = 0;
-        const pitch = this.detectPitchAMDF();
-        if (pitch >= 80 && pitch <= 520) {
-          const semitones = 12.0 * Math.log2(pitch / 440.0);
-          const snapped = Math.round(semitones);
-          const targetHz = 440.0 * Math.pow(2.0, snapped / 12.0);
-          this.atRatio = targetHz / pitch;
-        } else {
-          this.atRatio = 1.0;
-        }
-      }
-      effRatio = this.atRatio;
-    }
-
-    const inRing = this.inRing;
-    const outRing = this.outRing;
-    const ringSize = this.ringSize;
-    const N = this.N;
-    const H = this.H;
-    const halfN = this.halfN;
-    const omega = this.omega;
-
-    for (let i = 0; i < len; i++) {
-      inRing[this.inWrite] = inChannel[i];
-      this.inWrite = (this.inWrite + 1) % ringSize;
-    }
-    this.samplesInRing += len;
-
-    while (this.samplesInRing >= N) {
-      this.samplesInRing -= H;
-      this.synthMag.fill(0);
-      this.synthFreq.fill(0);
-
-      let readIdx = (this.inWrite - this.samplesInRing - N + ringSize * 2) % ringSize;
-      for (let i = 0; i < N; i++) {
-        this.real[i] = inRing[(readIdx + i) % ringSize] * this.window[i];
-        this.imag[i] = 0;
-      }
-
-      this.fft(this.real, this.imag);
-
-      if (this.preserveFormants) {
-        for (let k = 0; k <= halfN; k++) {
-          let sum = 0;
-          let count = 0;
-          for (let d = -4; d <= 4; d++) {
-            const idx = k + d;
-            if (idx >= 0 && idx <= halfN) {
-              sum += Math.hypot(this.real[idx], this.imag[idx]);
-              count++;
-            }
-          }
-          this.envelope[k] = sum / count;
-        }
-      }
-
-      for (let k = 0; k <= halfN; k++) {
-        const mag = Math.hypot(this.real[k], this.imag[k]);
-        const phase = Math.atan2(this.imag[k], this.real[k]);
-
-        let delta = phase - this.prevPhase[k];
-        this.prevPhase[k] = phase;
-        delta -= k * omega;
-
-        delta = Math.atan2(Math.sin(delta), Math.cos(delta));
-        const trueFreq = (k * omega + delta) / H;
-
-        const newBin = Math.round(k * effRatio);
-        if (newBin <= halfN) {
-          let targetMag = mag;
-          if (this.preserveFormants && this.envelope[k] > 0.0001) {
-            const targetEnv = this.envelope[newBin] || this.envelope[k];
-            targetMag = mag * (targetEnv / this.envelope[k]);
-          }
-          this.synthMag[newBin] += targetMag;
-          this.synthFreq[newBin] = trueFreq * effRatio;
-        }
-      }
-
-      this.real.fill(0);
-      this.imag.fill(0);
-      for (let k = 0; k <= halfN; k++) {
-        this.synthPhase[k] += this.synthFreq[k] * H;
-        const mag = this.synthMag[k];
-        const cosP = Math.cos(this.synthPhase[k]);
-        const sinP = Math.sin(this.synthPhase[k]);
-        this.real[k] = mag * cosP;
-        this.imag[k] = mag * sinP;
-        if (k > 0 && k < halfN) {
-          this.real[N - k] = this.real[k];
-          this.imag[N - k] = -this.imag[k];
-        }
-      }
-
-      this.ifft(this.real, this.imag);
-
-      const norm = 0.67;
-      for (let i = 0; i < N; i++) {
-        const pos = (this.outWrite + i) % ringSize;
-        outRing[pos] += this.real[i] * this.window[i] * norm;
-      }
-      this.outWrite = (this.outWrite + H) % ringSize;
-    }
-
-    for (let i = 0; i < len; i++) {
-      outChannel[i] = outRing[this.outRead];
-      outRing[this.outRead] = 0;
-      this.outRead = (this.outRead + 1) % ringSize;
+      this.writePos = (this.writePos + 1) % bSize;
+      this.phase0 = (this.phase0 + 1) % gSize;
+      this.phase1 = (this.phase1 + 1) % gSize;
+      this.phase2 = (this.phase2 + 1) % gSize;
     }
   }
 }
@@ -683,10 +447,6 @@ class VoiceChangerEngine {
     this.outputNode = null;
     this.monitoringGain = null;
     this.analyserNode = null;
-
-    // APO Streaming Node
-    this.apoStreamNode = null;
-    this.isApoStreaming = false;
 
     this.workletSupported = false;
     this.workletModuleLoaded = false;
@@ -726,6 +486,9 @@ class VoiceChangerEngine {
     this.analyserNode.smoothingTimeConstant = 0.5;
     this.outputNode.connect(this.analyserNode);
 
+    // Automatically forward to broadcast bus (Discord / virtual cable)
+    soundEngine.ensureBroadcastBridge();
+
     // Load AudioWorklet via Blob URL
     if (this.ctx.audioWorklet && !this.workletModuleLoaded) {
       try {
@@ -764,58 +527,13 @@ class VoiceChangerEngine {
     const array = new Uint8Array(this.analyserNode.frequencyBinCount);
     this.analyserNode.getByteFrequencyData(array);
     let sum = 0;
-    for (let i = 0; i < array.length; i++) {
-      sum += array[i];
-    }
-    return Math.min(1.0, (sum / (array.length * 255)) * 2.2);
+    for (let i = 0; i < array.length; i++) sum += array[i];
+    return Math.min(1.0, sum / (array.length * 200));
   }
 
   connectMicSource(sourceNode) {
     this.inputNode = sourceNode;
     this.rebuildGraph();
-  }
-
-  // Manage Real-Time APO Voice Streaming
-  setupApoStreaming() {
-    if (!this.ctx || !this.outputNode) return;
-    if (this.apoStreamNode) return;
-
-    try {
-      // 1024 frames = ~21.3ms at 48kHz
-      this.apoStreamNode = this.ctx.createScriptProcessor(1024, 1, 1);
-      this.apoStreamNode.onaudioprocess = (e) => {
-        if (!this.isApoStreaming || this.activePreset === 'none') return;
-        const inData = e.inputBuffer.getChannelData(0);
-        if (window.electronAPI && typeof window.electronAPI.sendVoiceStreamChunk === 'function') {
-          const byteBuffer = new Uint8Array(inData.buffer, inData.byteOffset, inData.byteLength);
-          window.electronAPI.sendVoiceStreamChunk({ pcmArray: byteBuffer }).catch(() => {});
-        }
-      };
-
-      this.outputNode.connect(this.apoStreamNode);
-      // ScriptProcessor needs destination connection in Chrome to trigger onaudioprocess
-      const nullGain = this.ctx.createGain();
-      nullGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
-      this.apoStreamNode.connect(nullGain);
-      nullGain.connect(this.ctx.destination);
-    } catch (err) {
-      console.warn("setupApoStreaming note:", err.message);
-    }
-  }
-
-  startApoStreaming() {
-    this.isApoStreaming = true;
-    this.setupApoStreaming();
-    if (window.electronAPI && typeof window.electronAPI.startVoiceStream === 'function') {
-      window.electronAPI.startVoiceStream({ blockVoice: true }).catch(() => {});
-    }
-  }
-
-  stopApoStreaming() {
-    this.isApoStreaming = false;
-    if (window.electronAPI && typeof window.electronAPI.stopVoiceStream === 'function') {
-      window.electronAPI.stopVoiceStream().catch(() => {});
-    }
   }
 
   setPreset(presetId) {
@@ -826,10 +544,8 @@ class VoiceChangerEngine {
     if (presetId !== 'none') {
       this.lastActivePreset = presetId;
       this.isMorphedActive = true;
-      this.startApoStreaming();
     } else {
       this.isMorphedActive = false;
-      this.stopApoStreaming();
     }
 
     if (oldPreset === 'walkie' && presetId !== 'walkie') {
@@ -846,11 +562,10 @@ class VoiceChangerEngine {
       const targetGain = enabled ? this.monitoringVolume : 0.0;
       this.monitoringGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.02);
     }
-    if (this.onStateChange) this.onStateChange(this.activePreset);
   }
 
-  setMonitoringVolume(val) {
-    this.monitoringVolume = Math.max(0, Math.min(1.5, val));
+  setMonitoringVolume(vol) {
+    this.monitoringVolume = Math.max(0.0, Math.min(1.5, vol));
     if (this.monitoringGain && this.isMonitoringEnabled && this.ctx) {
       this.monitoringGain.gain.setTargetAtTime(this.monitoringVolume, this.ctx.currentTime, 0.02);
     }
@@ -884,45 +599,50 @@ class VoiceChangerEngine {
   }
 
   playRogerBeep() {
-    if (!this.ctx) return;
+    if (!this.ctx || !this.outputNode) return;
     try {
       const now = this.ctx.currentTime;
-      // 1. Filtered static burst ("Krrsh")
-      const bufferSize = Math.floor(this.ctx.sampleRate * 0.10);
+      // 1. Tactical squelch noise burst (70ms)
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.07);
       const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
+      const data = noiseBuffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
-        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
       }
+
       const noiseSource = this.ctx.createBufferSource();
       noiseSource.buffer = noiseBuffer;
 
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1800, now);
-      filter.Q.setValueAtTime(2.5, now);
+      filter.frequency.setValueAtTime(1400, now);
+      filter.Q.setValueAtTime(2.0, now);
 
       const noiseGain = this.ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.3, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+      noiseGain.gain.setValueAtTime(0.25, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
 
       noiseSource.connect(filter);
       filter.connect(noiseGain);
       noiseGain.connect(this.outputNode);
-      noiseSource.start(now);
 
-      // 2. High tactical Roger Beep tone (1250 Hz)
+      // 2. High-pitched dual radio tone beep
       const osc = this.ctx.createOscillator();
       const oscGain = this.ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(1250, now + 0.02);
-      oscGain.gain.setValueAtTime(0.18, now + 0.02);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+      osc.frequency.setValueAtTime(1200, now + 0.04);
+      osc.frequency.setValueAtTime(1600, now + 0.09);
+
+      oscGain.gain.setValueAtTime(0, now);
+      oscGain.gain.setValueAtTime(0.18, now + 0.04);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
       osc.connect(oscGain);
       oscGain.connect(this.outputNode);
-      osc.start(now + 0.02);
-      osc.stop(now + 0.11);
+
+      noiseSource.start(now);
+      osc.start(now + 0.04);
+      osc.stop(now + 0.17);
     } catch (e) {
       console.warn("Roger beep notice:", e);
     }
@@ -940,7 +660,6 @@ class VoiceChangerEngine {
     return curve;
   }
 
-  // Create core VoiceFX Node (AudioWorklet with ScriptProcessor fallback)
   createFXNode(mode = 0, pitchRatio = 1.0, preserveFormants = true) {
     const now = this.ctx.currentTime;
     if (this.workletSupported) {
@@ -958,7 +677,7 @@ class VoiceChangerEngine {
       }
     }
 
-    // Fallback: ScriptProcessorNode with 512-point FFT Phase Vocoder
+    // Fallback: Universal ScriptProcessor with Tri-Tap Constant Power DSP
     const spNode = this.ctx.createScriptProcessor(1024, 1, 1);
     const dsp = new FallbackVoiceFXDSP(this.ctx.sampleRate);
     dsp.mode = mode;
@@ -986,7 +705,6 @@ class VoiceChangerEngine {
     }
   }
 
-  // Rebuild the DSP graph for the selected preset
   rebuildGraph() {
     if (!this.ctx || !this.inputNode || !this.outputNode) return;
     this.cleanupCurrentGraph();

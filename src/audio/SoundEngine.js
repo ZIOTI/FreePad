@@ -161,7 +161,7 @@ class SoundEngine {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const outputs = devices.filter(d => d.kind === 'audiooutput');
-      const virtualKeywords = ['cable input', 'vb-audio', 'voicemod', 'steam streaming', 'virtual'];
+      const virtualKeywords = ['cable input', 'vb-audio', 'voicemod', 'steam streaming', 'steam', 'virtual', 'cable', 'ligne (voicemod'];
       for (const kw of virtualKeywords) {
         const found = outputs.find(d => d.label && d.label.toLowerCase().includes(kw));
         if (found) {
