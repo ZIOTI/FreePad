@@ -51,6 +51,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('trigger-instant-remix', handler);
   },
 
+  // Voice Changer Pro (F6)
+  setVoiceChangerHotkey: (opts) => ipcRenderer.invoke('set-voice-changer-hotkey', opts),
+  onTriggerVoiceChanger: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('trigger-voice-changer', handler);
+    return () => ipcRenderer.removeListener('trigger-voice-changer', handler);
+  },
+
   onTriggerSound: (callback) => {
     const handler = (event, soundId) => callback(soundId);
     ipcRenderer.on('trigger-sound-hotkey', handler);

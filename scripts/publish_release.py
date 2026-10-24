@@ -38,22 +38,40 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Mise à jour Officielle"
-BODY = f"""# 🎉 FreePad {TAG}
+RELEASE_NAME = f"FreePad {TAG} — Voice Changer Pro & Zéro Latence"
+BODY = f"""# 🎉 FreePad {TAG} — Mise à jour Majeure
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro directe sans aucun câble virtuel.
 
-### ✨ Nouveautés et Fonctionnalités Clés :
-* 🎙️ **Injection Micro Directe (Mode APO) :** Zéro VB-Cable requis, les sons entrent directement dans votre micro physique Windows.
-* 🎧 **Mode Câble Virtuel (Fallback VB-Cable) :** Compatible avec protection anti-boucle d'écho.
-* 📦 **Véritable Installeur Windows (NSIS) :** Raccourci sur le bureau, menu démarrer et désinstalleur officiel Windows.
-* 🔄 **Mises à Jour Automatiques :** L'application vous prévient dès qu'une nouvelle version est disponible.
-* ✂️ **Instant Replay Discord (F8) :** Buffer circulaire WASAPI de 30 secondes pour clipper les moments vocaux.
-* 📱 **Stream Deck Mobile :** Contrôle distant via smartphone / tablette sur le réseau local avec QR code.
-* 🔍 **Recherche & Téléchargement :** Intégration MyInstants et Voicemod.
+---
 
-### 📥 Téléchargement :
-Téléchargez **FreePad-Setup-{VERSION}.exe** ci-dessous et lancez l'installation !
+### 🎙️ NOUVEAUTÉ : Voice Changer Pro (Modulateur de Voix en Temps Réel)
+Transforme ta voix en direct avec **zéro latence** directement dans ton micro physique Windows ou dans Discord :
+* 🎤 **Mode Travis Scott / PNL (Auto-Tune) :** Correction de pitch chromatique dure instantanée + Reverb studio spatiale.
+* 🤖 **Robot / Vocoder Daft Punk :** Modulateur en anneau synthétique et électrique sur note de basse.
+* 😈 **Démon des Abysses :** Voix descendue d'une octave avec sub-bass 90Hz et distorsion sombre de film d'horreur.
+* 🎈 **Hélium / Lutin :** Voix aiguë rapide avec formants rehaussés.
+* 📢 **Mégaphone de Police :** Filtre de haut-parleur résonant et distorsion de rue.
+* 📻 **Talkie-Walkie Militaire :** Filtre radio tactique avec grésillement et bip *"Krrsh... Roger"* déclenché au relâchement.
+* 🎧 **Retour Casque Intégré :** Écoute ta propre voix modifiée en temps réel avec volume ajustable.
+* ⌨️ **Raccourci Clavier Global (F6) :** Active ou désactive le voice changer en jeu ou sur Discord d'une simple touche.
+* 🎛️ **Mode Bascule ou Push-to-Talk (PTT) :** Choisis entre appuyer pour activer ou maintenir pour parler.
+
+---
+
+### 🔥 Instant Remix (F7)
+* 🎛️ Capture 2.5 secondes de parole d'un pote en vocal et transforme-la automatiquement en boucle rap calée sur une instru **Drill, Phonk ou Trap** en direct dans ton micro !
+
+---
+
+### ⚡ Améliorations & Corrections
+* 🔄 **Mise à Jour 100% Silencieuse :** L'auto-updater applique les mises à jour en arrière-plan sans jamais réouvrir l'assistant d'installation.
+* 📦 **Installeur Windows NSIS Pro :** Raccourcis Bureau et Menu Démarrer officiels.
+
+---
+
+### 📥 Téléchargement
+Téléchargez **FreePad-Setup-{VERSION}.exe** ci-dessous pour installer ou mettre à jour FreePad !
 """
 
 print(f"Publishing release {TAG} for {REPO}...")

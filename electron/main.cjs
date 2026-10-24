@@ -622,10 +622,11 @@ ipcMain.handle('search-voicemod', async (event, { query = '', page = 1, size = 2
 // ==========================================
 // 5. INSTANT REPLAY / CLIPPER DISCORD (5S)
 // ==========================================
-// INSTANT REPLAY & INSTANT REMIX HOTKEYS
+// HOTKEYS: INSTANT REPLAY (F8), INSTANT REMIX (F7), VOICE CHANGER (F6)
 // ==========================================
 let currentReplayHotkey = 'F8';
 let currentRemixHotkey = 'F7';
+let currentVoiceChangerHotkey = 'F6';
 
 function registerInstantReplayHotkey(key = 'F8') {
   try {
@@ -667,6 +668,26 @@ function registerInstantRemixHotkey(key = 'F7') {
   }
 }
 
+function registerVoiceChangerHotkey(key = 'F6') {
+  try {
+    if (currentVoiceChangerHotkey) {
+      try { globalShortcut.unregister(currentVoiceChangerHotkey); } catch (e) {}
+    }
+    const registered = globalShortcut.register(key, () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('trigger-voice-changer');
+      }
+    });
+    if (registered) {
+      currentVoiceChangerHotkey = key;
+    }
+    return registered;
+  } catch (err) {
+    console.warn('Could not register voice changer hotkey:', err.message);
+    return false;
+  }
+}
+
 ipcMain.handle('set-replay-hotkey', (event, { hotkey }) => {
   const success = registerInstantReplayHotkey(hotkey);
   return { success, hotkey: currentReplayHotkey };
@@ -675,6 +696,11 @@ ipcMain.handle('set-replay-hotkey', (event, { hotkey }) => {
 ipcMain.handle('set-remix-hotkey', (event, { hotkey }) => {
   const success = registerInstantRemixHotkey(hotkey);
   return { success, hotkey: currentRemixHotkey };
+});
+
+ipcMain.handle('set-voice-changer-hotkey', (event, { hotkey }) => {
+  const success = registerVoiceChangerHotkey(hotkey);
+  return { success, hotkey: currentVoiceChangerHotkey };
 });
 
 // NATIVE WINDOWS WASAPI LOOPBACK (DISCORD & SYSTEM AUDIO)
@@ -1109,9 +1135,10 @@ app.whenReady().then(() => {
     session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => callback(true));
   }
 
-  // Register default hotkeys: Instant Replay (F8) and Instant Remix (F7)
+  // Register default hotkeys: Instant Replay (F8), Instant Remix (F7), Voice Changer (F6)
   registerInstantReplayHotkey('F8');
   registerInstantRemixHotkey('F7');
+  registerVoiceChangerHotkey('F6');
 
   createWindow();
 

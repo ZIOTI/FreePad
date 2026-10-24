@@ -1,6 +1,7 @@
 /**
  * FreePad SoundEngine — Dual-Output (Headphones + Mic Injection) with Microphone Passthrough
  */
+import voiceChangerEngine from './VoiceChangerEngine';
 class SoundEngine {
   constructor() {
     this.ctx = null;
@@ -235,16 +236,27 @@ class SoundEngine {
 
       this.realMicStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-      // Always create micAnalyser for UI VU-meter so user sees their mic working
-      const targetCtx = this.broadcastCtx || this.ctx;
-      this.realMicSourceNode = targetCtx.createMediaStreamSource(this.realMicStream);
+      // Create mic source and analyser in this.ctx
+      this.realMicSourceNode = this.ctx.createMediaStreamSource(this.realMicStream);
 
-      this.micAnalyser = targetCtx.createAnalyser();
+      this.micAnalyser = this.ctx.createAnalyser();
       this.micAnalyser.fftSize = 64;
       this.realMicSourceNode.connect(this.micAnalyser);
 
-      // In Virtual Cable mode (VB-Cable), forward mic to broadcast bus so voice is heard in call
-      if (!this.isApoMode && this.broadcastCtx) {
+      // Connect Voice Changer Engine in this.ctx
+      await voiceChangerEngine.init(this.ctx);
+      voiceChangerEngine.connectMicSource(this.realMicSourceNode);
+
+      // Connect local monitoring cleanly
+      if (this.headphonesGain && voiceChangerEngine.monitoringGain) {
+        try {
+          voiceChangerEngine.monitoringGain.disconnect();
+        } catch (e) {}
+        voiceChangerEngine.monitoringGain.connect(this.headphonesGain);
+      }
+
+      // Forward morphed voice to broadcast bus (VB-Cable / Discord)
+      if (this.broadcastCtx) {
         if (!this.micPassthroughGain) {
           this.micPassthroughGain = this.broadcastCtx.createGain();
           if (this.broadcastMasterGain) {
@@ -253,9 +265,14 @@ class SoundEngine {
             this.micPassthroughGain.connect(this.broadcastCtx.destination);
           }
         }
-        // Voice volume at 1.0 (full natural speech volume into virtual cable)
         this.micPassthroughGain.gain.setValueAtTime(this.realMicVolume, this.broadcastCtx.currentTime);
-        this.micAnalyser.connect(this.micPassthroughGain);
+
+        if (!this.micBroadcastBridgeStream) {
+          this.micBroadcastBridgeDest = this.ctx.createMediaStreamDestination();
+          voiceChangerEngine.outputNode.connect(this.micBroadcastBridgeDest);
+          this.micBroadcastBridgeStream = this.broadcastCtx.createMediaStreamSource(this.micBroadcastBridgeDest.stream);
+          this.micBroadcastBridgeStream.connect(this.micPassthroughGain);
+        }
       }
     } catch (err) {
       console.error("Failed to enable mic passthrough:", err);
@@ -272,6 +289,15 @@ class SoundEngine {
       try { this.realMicSourceNode.disconnect(); } catch (e) {}
       this.realMicSourceNode = null;
     }
+    if (this.micBroadcastBridgeStream) {
+      try { this.micBroadcastBridgeStream.disconnect(); } catch (e) {}
+      this.micBroadcastBridgeStream = null;
+    }
+    if (this.micBroadcastBridgeDest) {
+      try { this.micBroadcastBridgeDest.disconnect(); } catch (e) {}
+      this.micBroadcastBridgeDest = null;
+    }
+    voiceChangerEngine.cleanupCurrentGraph();
   }
 
   async playTestTone() {

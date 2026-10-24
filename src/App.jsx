@@ -22,7 +22,8 @@ import {
   Headphones,
   Zap,
   Smartphone,
-  SquarePlay
+  SquarePlay,
+  Mic
 } from 'lucide-react';
 import soundEngine from './audio/SoundEngine';
 import audioClipRecorder from './audio/AudioClipRecorder';
@@ -41,6 +42,8 @@ import AudioTrimmerModal from './components/AudioTrimmerModal';
 import UpdateModal from './components/UpdateModal';
 import InstantRemixModal from './components/InstantRemixModal';
 import instantRemixEngine from './audio/InstantRemixEngine';
+import VoiceChangerModal from './components/VoiceChangerModal';
+import voiceChangerEngine from './audio/VoiceChangerEngine';
 import { parseSpl, exportToSpl, getRandomColor } from './utils/splParser';
 
 const INITIAL_SOUNDS = [
@@ -161,6 +164,7 @@ export default function App() {
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [isRemixModalOpen, setIsRemixModalOpen] = useState(false);
+  const [isVoiceChangerOpen, setIsVoiceChangerOpen] = useState(false);
 
   // Auto-updater listener
   useEffect(() => {
@@ -171,6 +175,24 @@ export default function App() {
     });
     return () => {
       if (unreg) unreg();
+    };
+  }, []);
+
+  // Voice Changer F6 Global Trigger
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    const unregVoice = window.electronAPI.onTriggerVoiceChanger?.(() => {
+      voiceChangerEngine.handleHotkeyPress();
+      const current = voiceChangerEngine.activePreset;
+      if (current !== 'none') {
+        const name = voiceChangerEngine.activePreset.toUpperCase();
+        showToast(`🎙️ Voice Changer : ${name}`, 'info');
+      } else {
+        showToast('🎙️ Voice Changer désactivé', 'info');
+      }
+    });
+    return () => {
+      if (unregVoice) unregVoice();
     };
   }, []);
 
@@ -772,6 +794,17 @@ export default function App() {
             <span>Remix (F7)</span>
           </button>
 
+          {/* Voice Changer Pro (F6) */}
+          <button
+            onClick={() => setIsVoiceChangerOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-md bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white shadow-purple-500/25 active:scale-95 border border-purple-400/40"
+            title="Voice Changer Pro (Touche F6) — Modulateur de voix en temps réel zéro latence !"
+          >
+            <Mic className="w-4 h-4 text-cyan-200 animate-pulse" />
+            <span className="hidden md:inline">Voice</span>
+            <span>Changer (F6)</span>
+          </button>
+
           {/* Add Local Sounds */}
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -1122,6 +1155,11 @@ export default function App() {
           setSounds((prev) => [newSound, ...prev]);
           showToast(`Remix ajouté à ta bibliothèque : ${newSound.title}`, 'success');
         }}
+      />
+
+      <VoiceChangerModal
+        isOpen={isVoiceChangerOpen}
+        onClose={() => setIsVoiceChangerOpen(false)}
       />
     </div>
   );
