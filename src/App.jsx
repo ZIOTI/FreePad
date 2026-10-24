@@ -1160,6 +1160,11 @@ export default function App() {
       <VoiceChangerModal
         isOpen={isVoiceChangerOpen}
         onClose={() => setIsVoiceChangerOpen(false)}
+        audioInputDevices={audioInputDevices}
+        selectedMicInput={selectedMicInput}
+        setSelectedMicInput={setSelectedMicInput}
+        broadcastOutput={broadcastOutput}
+        setBroadcastOutput={setBroadcastOutput}
       />
     </div>
   );

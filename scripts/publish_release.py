@@ -38,32 +38,24 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Correctif Zéro Feedback & Moteur DSP Tri-Tap Haute Fidélité"
-BODY = f"""# 🎉 FreePad {TAG} — Moteur DSP Haute Fidélité & Discord 100% Sans Feedback
+RELEASE_NAME = f"FreePad {TAG} — Sélecteur de Microphone Dédié & Configuration Discord 2 Clics"
+BODY = f"""# 🎉 FreePad {TAG} — Sélecteur de Microphone Dédié & Configuration Discord en 2 Clics
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.2.3 ?
+### 🚀 Quoi de neuf dans la v1.2.4 ?
 
-#### 1. 🛡️ Élimination Totale du Bug de Répétition Ultra-Rapide (Anti-Feedback Guard)
-* 🚫 **Fin du Larsen / Répétition en rafale :** Le streaming en boucle locale vers l'APO matériel qui créait un écho ultra-rapide en mitraillette (50Hz) a été **définitivement supprimé**.
-* 🎧 **Isolation Acoustique Absolue :** Le microphone physique de l'utilisateur reste 100% propre, sans aucun retour ni larsen audio.
+#### 1. 🎙️ Sélecteur de Microphone d'Entrée Dédié
+* 🎯 **Choix direct de ton vrai micro :** Ajout d'un menu déroulant dédié **« 1️⃣ Mon Vrai Microphone »** dans le Voice Changer. Tu peux maintenant choisir explicitement ton microphone physique (ex: WOODBRASS UM1, Logitech PRO X, micro casque USB...).
+* 📊 **VU-Mètre Dynamique par Micro :** Le vu-mètre affiche désormais le nom exact de ton micro actif et réagit en direct avec ta voix.
 
-#### 2. 🎛️ Tout Nouveau Moteur DSP Tri-Tap à Énergie Constante (Zero Dropouts, Zero Flutter)
-* 💎 **Moteur Granulaire 3 Taps à 120° :** Remplacement complet de l'ancien vocodeur instable par un algorithme à sommation constante (puissance égale garantie $\\sum \\sin^2 = 1.5$). Zéro hachure, zéro saccade, zéro trou de silence.
-* 🎤 **Travis Scott / PNL (Auto-Tune) :** Détecteur de hauteur AMDF temps réel avec snap chromatique instantané (0 ms de temps de recalage) + delay spatial studio + brillance 8 kHz.
-* 🤖 **Robot / Vocoder Daft Punk :** Synthétiseur analogique bitonal (fondamentale A2 110Hz + quinte E3 165Hz) avec suiveur d'enveloppe vocal et préservation des consonnes/sibilances (> 3.2kHz) pour une intelligibilité parfaite.
-* 😈 **Démon des Abysses :** Pitch descendu (-8.5 demi-tons) + couche sous-octave (-12 st) + résonance de poitrine sub-bass 85Hz + saturation tube analogique.
-* 🎈 **Hélium / Lutin :** Pitch monté (+9.5 demi-tons) + coupe-bas 380Hz éliminant les résonances d'adulte + boost de présence 2600Hz.
-* 📢 **Mégaphone de Police :** Filtrage acoustique de pavillon 620Hz - 2500Hz + pic de résonance 1250Hz + distorsion à diode + écho slapback de rue 22ms.
-* 📻 **Talkie-Walkie Militaire :** Bande passante radio VHF/UHF + saturation radio + compression dynamique + bip "Roger" réaliste au relâchement de la touche.
-
-#### 3. 🎙️ Connexion Discord Instantanée & Auto-Détection
-* ⚡ **Auto-Sélection Intelligente :** FreePad détecte automatiquement tout câble virtuel ou périphérique disponible (Voicemod Virtual Audio Device, Steam Streaming Microphone, VB-Cable) et configure la sortie de diffusion sans aucune manipulation complexe.
-* 📋 **Guide Clair dans l'Interface :** Indication exacte du périphérique d'entrée à sélectionner dans les paramètres Discord.
-* 🎙️ **Test d'Écoute 3s :** Permet de s'entendre parler comme Discord nous entend d'un simple clic.
+#### 2. 🔊 Séparation Claire Entrée Microphone vs Sortie Discord
+* 🧭 **Interface ultra claire en 2 étapes :**
+  1. **Menu 1 (Entrée) :** Ton vrai micro où tu parles.
+  2. **Menu 2 (Sortie) :** Le câble virtuel (Steam Streaming Microphone, Voicemod ou VB-Cable) qui envoie ta voix modifiée vers Discord ou tes jeux.
+* 🛡️ **Zéro confusion :** Les câbles virtuels sont clairement étiquetés pour éviter toute erreur de boucle.
 
 ---
 

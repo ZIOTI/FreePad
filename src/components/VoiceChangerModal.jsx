@@ -22,7 +22,15 @@ import {
 import voiceChangerEngine, { VOICE_PRESETS } from '../audio/VoiceChangerEngine';
 import soundEngine from '../audio/SoundEngine';
 
-export default function VoiceChangerModal({ isOpen, onClose }) {
+export default function VoiceChangerModal({
+  isOpen,
+  onClose,
+  audioInputDevices = [],
+  selectedMicInput,
+  setSelectedMicInput,
+  broadcastOutput,
+  setBroadcastOutput
+}) {
   const [activePreset, setActivePreset] = useState(voiceChangerEngine.activePreset || 'none');
   const [isMonitoring, setIsMonitoring] = useState(voiceChangerEngine.isMonitoringEnabled);
   const [monitoringVol, setMonitoringVol] = useState(voiceChangerEngine.monitoringVolume);
@@ -32,10 +40,15 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
   const [isSettingHotkey, setIsSettingHotkey] = useState(false);
   const [micActive, setMicActive] = useState(false);
 
-  // Discord & Hardware Routing State
-  const [apoAvailable, setApoAvailable] = useState(false);
+  // Audio Device Selection State
+  const [inputDevices, setInputDevices] = useState(audioInputDevices || []);
   const [outputDevices, setOutputDevices] = useState([]);
-  const [selectedBroadcastId, setSelectedBroadcastId] = useState(soundEngine.broadcastDeviceId || 'default');
+  const [selectedMicId, setSelectedMicId] = useState(
+    selectedMicInput || soundEngine.realMicDeviceId || localStorage.getItem('freepad_selected_mic') || 'default'
+  );
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState(
+    broadcastOutput || soundEngine.broadcastDeviceId || 'default'
+  );
   const [isTestingVoice, setIsTestingVoice] = useState(false);
   const [testProgress, setTestProgress] = useState(0);
   const [testMessage, setTestMessage] = useState('');
@@ -52,20 +65,30 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
     // Auto-start microphone if not already active
     voiceChangerEngine.ensureMicStarted().then(ok => setMicActive(ok));
 
-    // Check APO Driver status
-    if (window.electronAPI && typeof window.electronAPI.checkApoStatus === 'function') {
-      window.electronAPI.checkApoStatus().then(res => {
-        if (res && res.isAvailable) setApoAvailable(true);
-      });
-    }
-
-    // Enumerate output devices to display virtual cables / broadcast targets
+    // Enumerate both audioinput (microphones) and audiooutput (virtual cables/speakers)
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
       navigator.mediaDevices.enumerateDevices().then(devs => {
+        const ins = devs.filter(d => d.kind === 'audioinput');
         const outs = devs.filter(d => d.kind === 'audiooutput');
+        setInputDevices(ins);
         setOutputDevices(outs);
 
-        // Auto-detect if broadcast device isn't set
+        // 1. Microphone Input: Auto-select physical microphone (e.g. WOODBRASS UM1, Logitech PRO X)
+        const currentSavedMic = selectedMicInput || localStorage.getItem('freepad_selected_mic') || soundEngine.realMicDeviceId;
+        if (currentSavedMic && currentSavedMic !== 'default' && ins.some(d => d.deviceId === currentSavedMic)) {
+          setSelectedMicId(currentSavedMic);
+        } else if (ins.length > 0) {
+          const physMic = ins.find(d => {
+            const l = (d.label || '').toLowerCase();
+            return !l.includes('cable') && !l.includes('virtual') && !l.includes('mixage') && !l.includes('stereo mix') && !l.includes('voicemeeter');
+          }) || ins[0];
+          setSelectedMicId(physMic.deviceId);
+          if (setSelectedMicInput) setSelectedMicInput(physMic.deviceId);
+          soundEngine.toggleMicPassthrough(true, physMic.deviceId, physMic.label);
+          localStorage.setItem('freepad_selected_mic', physMic.deviceId);
+        }
+
+        // 2. Broadcast Output: Auto-detect virtual device (Voicemod, Steam, VB-Cable)
         if (soundEngine.broadcastDeviceId && soundEngine.broadcastDeviceId !== 'default') {
           setSelectedBroadcastId(soundEngine.broadcastDeviceId);
         } else {
@@ -73,6 +96,7 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
             if (vDev) {
               setSelectedBroadcastId(vDev.deviceId);
               soundEngine.setOutputDevice('broadcast', vDev.deviceId);
+              if (setBroadcastOutput) setBroadcastOutput(vDev.deviceId);
             }
           });
         }
@@ -121,8 +145,21 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
     voiceChangerEngine.setPushToTalk(enabled);
   };
 
+  const handleMicDeviceChange = async (deviceId) => {
+    setSelectedMicId(deviceId);
+    if (setSelectedMicInput) setSelectedMicInput(deviceId);
+    localStorage.setItem('freepad_selected_mic', deviceId);
+    const chosen = (inputDevices || []).find(d => d.deviceId === deviceId);
+    await soundEngine.toggleMicPassthrough(
+      Boolean(deviceId && deviceId !== 'none'),
+      deviceId,
+      chosen?.label || ''
+    );
+  };
+
   const handleBroadcastDeviceChange = (deviceId) => {
     setSelectedBroadcastId(deviceId);
+    if (setBroadcastOutput) setBroadcastOutput(deviceId);
     soundEngine.setOutputDevice('broadcast', deviceId);
   };
 
@@ -176,7 +213,7 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // Determine current active broadcast target name
+  // Determine current active broadcast target name & Discord suggestion
   const getDiscordInputSuggestion = (label = '') => {
     const l = (label || '').toLowerCase();
     if (l.includes('voicemod')) return 'Microphone (Voicemod Virtual Audio Device (WDM))';
@@ -184,6 +221,9 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
     if (l.includes('cable') || l.includes('vb-audio')) return 'CABLE Output (VB-Audio Virtual Cable)';
     return label || 'ton périphérique virtuel';
   };
+
+  const currentMicDevice = inputDevices.find(d => d.deviceId === selectedMicId);
+  const activeMicName = currentMicDevice?.label || 'Microphone par défaut';
 
   const currentBroadcastDevice = outputDevices.find(d => d.deviceId === selectedBroadcastId);
   const broadcastLabel = currentBroadcastDevice?.label || 'Périphérique Virtuel';
@@ -211,7 +251,7 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
                   Voice Changer Pro Studio
                 </h2>
                 <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30 rounded-full">
-                  DSP Phase Vocoder
+                  DSP Constant-Power
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -248,7 +288,9 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
         <div className="mt-4 p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between gap-4">
           <div className="flex items-center space-x-2.5">
             <Activity className={`w-4 h-4 ${vuLevel > 5 ? 'text-cyan-400 animate-pulse' : 'text-slate-600'}`} />
-            <span className="text-xs font-medium text-slate-300">Niveau Micro :</span>
+            <span className="text-xs font-medium text-slate-300 truncate max-w-[240px]">
+              Niveau ({activeMicName}) :
+            </span>
           </div>
 
           {/* Meter Bar */}
@@ -313,13 +355,13 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
           })}
         </div>
 
-        {/* Discord & In-Game Setup Card (Crucial for 100% working in Discord) */}
+        {/* Audio Devices & Discord Setup Card */}
         <div className="mt-4 p-4 bg-slate-950/70 border border-indigo-500/30 rounded-xl shadow-lg space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
-              <Radio className="w-4 h-4 text-cyan-400 shrink-0" />
+              <Sliders className="w-4 h-4 text-cyan-400 shrink-0" />
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Connexion Discord & Jeux :
+                Configuration Micro &amp; Discord :
               </h3>
               <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                 🟢 Sortie Active
@@ -356,18 +398,47 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
             </div>
           )}
 
-          {/* Device Destination Selector */}
+          {/* TWO DROPDOWNS: 1. MICROPHONE INPUT | 2. BROADCAST OUTPUT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {/* 1. Microphone Input */}
             <div>
-              <label className="text-[11px] font-semibold text-slate-300 block mb-1">
-                Périphérique de Diffusion (Câble Virtuel / Voicemod) :
+              <label className="text-[11px] font-bold text-cyan-300 flex items-center space-x-1.5 mb-1.5">
+                <Mic className="w-3.5 h-3.5 text-cyan-400" />
+                <span>1️⃣ Mon Vrai Microphone (Entrée audio) :</span>
+              </label>
+              <select
+                value={selectedMicId}
+                onChange={(e) => handleMicDeviceChange(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 font-medium"
+              >
+                {inputDevices.map((d) => {
+                  const label = d.label || '';
+                  const l = label.toLowerCase();
+                  const isVirtual = l.includes('cable') || l.includes('vb-audio') || l.includes('voicemeeter') || l.includes('virtual') || l.includes('mixage');
+                  return (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {isVirtual ? `⚠️ ${label} (Câble Virtuel)` : `🎙️ ${label || `Microphone (${d.deviceId.slice(0, 8)}...)`} (Recommandé)`}
+                    </option>
+                  );
+                })}
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Sélectionne ton vrai micro où tu parles (ex: WOODBRASS UM1, Logitech...).
+              </p>
+            </div>
+
+            {/* 2. Broadcast Output */}
+            <div>
+              <label className="text-[11px] font-bold text-indigo-300 flex items-center space-x-1.5 mb-1.5">
+                <Radio className="w-3.5 h-3.5 text-indigo-400" />
+                <span>2️⃣ Sortie Discord / En jeu (Câble Virtuel) :</span>
               </label>
               <select
                 value={selectedBroadcastId}
                 onChange={(e) => handleBroadcastDeviceChange(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-400"
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-400 font-medium"
               >
-                <option value="default">-- Sélectionne un périphérique virtuel --</option>
+                <option value="default">-- Sélectionne un câble virtuel --</option>
                 {outputDevices.map((d) => {
                   const label = d.label || '';
                   const isVirt = /cable|voicemod|steam|virtual/i.test(label);
@@ -378,22 +449,26 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
                   );
                 })}
               </select>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 text-[11px] text-slate-300 space-y-1">
-              <div className="font-bold text-emerald-300 flex items-center space-x-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Configuration Discord en 1 seconde :</span>
-              </div>
-              <p>
-                Dans <strong>Discord &gt; Paramètres &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :<br />
-                {selectedBroadcastId !== 'default' ? (
-                  <>Sélectionne 👉 <strong className="text-emerald-300 underline">{discordInputName}</strong> pour parler en direct avec ta voix modifiée !</>
-                ) : (
-                  <>Sélectionne un périphérique virtuel ci-contre (ex: <strong>Voicemod</strong>, <strong>Steam</strong> ou <strong>VB-Cable</strong>) pour diffuser dans Discord sans latence ni écho.</>
-                )}
+              <p className="text-[10px] text-slate-400 mt-1">
+                Câble virtuel qui retransmet ta voix modifiée vers Discord ou tes jeux.
               </p>
             </div>
+          </div>
+
+          {/* Discord Instruction Guide */}
+          <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 text-[11px] text-slate-300 space-y-1">
+            <div className="font-bold text-emerald-300 flex items-center space-x-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Configuration Discord en 1 seconde :</span>
+            </div>
+            <p>
+              Dans <strong>Discord &gt; Paramètres &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :<br />
+              {selectedBroadcastId !== 'default' ? (
+                <>Sélectionne 👉 <strong className="text-emerald-300 underline">{discordInputName}</strong> pour parler en direct avec les voix modifiées !</>
+              ) : (
+                <>Sélectionne un câble virtuel dans le menu n°2 ci-dessus (ex: <strong>Steam Streaming Microphone</strong> ou <strong>Voicemod</strong>) pour diffuser sans délai.</>
+              )}
+            </p>
           </div>
         </div>
 
@@ -491,7 +566,7 @@ export default function VoiceChangerModal({ isOpen, onClose }) {
 
         {/* Footer info branding */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-          <span>FreePad Voice Changer Pro v1.2.3 • Zéro Latence • DSP Constant-Power • Autotune &amp; Vocoder</span>
+          <span>FreePad Voice Changer Pro v1.2.4 • Zéro Latence • DSP Constant-Power • Autotune &amp; Vocoder</span>
           <span className="text-indigo-400 font-medium">Fait par zioti</span>
         </div>
       </div>
