@@ -11,7 +11,7 @@
     "app": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "dist": "vite build && electron-builder --win --x64",
     "dist:portable": "vite build && electron-builder --win portable --x64",
-    "release": "vite build && electron-builder --win --x64 && python scripts/publish_release.py"
+    "release": "vite build && electron-builder --win --x64 --publish never && python scripts/publish_release.py"
   },
   "build": {
     "appId": "com.zioti.freepad",
