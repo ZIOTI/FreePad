@@ -1189,7 +1189,8 @@ ipcMain.handle('start-download-update', async () => {
 });
 
 ipcMain.handle('quit-and-install-update', () => {
-  autoUpdater.quitAndInstall();
+  // Silent update: true = zero install wizard popups, true = force relaunch app updated
+  autoUpdater.quitAndInstall(true, true);
 });
 
 app.on('will-quit', () => {
