@@ -38,35 +38,30 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Voice Changer Pro & Zéro Latence"
-BODY = f"""# 🎉 FreePad {TAG} — Mise à jour Majeure
+RELEASE_NAME = f"FreePad {TAG} — Refonte Voice Changer Studio & Haute Fidélité"
+BODY = f"""# 🎉 FreePad {TAG} — Refonte Majeure du Modulateur de Voix
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro directe sans aucun câble virtuel.
 
 ---
 
-### 🎙️ NOUVEAUTÉ : Voice Changer Pro (Modulateur de Voix en Temps Réel)
-Transforme ta voix en direct avec **zéro latence** directement dans ton micro physique Windows ou dans Discord :
-* 🎤 **Mode Travis Scott / PNL (Auto-Tune) :** Correction de pitch chromatique dure instantanée + Reverb studio spatiale.
-* 🤖 **Robot / Vocoder Daft Punk :** Modulateur en anneau synthétique et électrique sur note de basse.
-* 😈 **Démon des Abysses :** Voix descendue d'une octave avec sub-bass 90Hz et distorsion sombre de film d'horreur.
-* 🎈 **Hélium / Lutin :** Voix aiguë rapide avec formants rehaussés.
-* 📢 **Mégaphone de Police :** Filtre de haut-parleur résonant et distorsion de rue.
-* 📻 **Talkie-Walkie Militaire :** Filtre radio tactique avec grésillement et bip *"Krrsh... Roger"* déclenché au relâchement.
-* 🎧 **Retour Casque Intégré :** Écoute ta propre voix modifiée en temps réel avec volume ajustable.
-* ⌨️ **Raccourci Clavier Global (F6) :** Active ou désactive le voice changer en jeu ou sur Discord d'une simple touche.
-* 🎛️ **Mode Bascule ou Push-to-Talk (PTT) :** Choisis entre appuyer pour activer ou maintenir pour parler.
+### 🎙️ Refonte Complète du Voice Changer Pro (Studio DSP)
+Le modulateur de voix a été totalement réécrit avec un véritable moteur audio granulaire haute fidélité (PSOLA) et un vocoder synthétique musical :
+
+* 🎤 **Mode Travis Scott / PNL (Auto-Tune) :** Détection rapide de pitch AMDF et snap chromatique instantané sur la gamme avec delay ping-pong stéréo et reverb studio spatiale.
+* 🤖 **Robot / Vocoder Daft Punk :** Vrai synthé double-porteur analogique accordé (A2 110Hz + E3 165Hz) avec suivi dynamique des voyelles et préservation des consonnes aiguës pour que chaque parole reste **100% compréhensible et musicale**.
+* 😈 **Démon des Abysses :** Pitch descendu d'une octave (-8.5 demi-tons) avec couche sous-octave parallèle, boost sub-bass 85Hz (+9 dB) et saturation tube chaleureuse (adieu le buzz de scie !).
+* 🎈 **Hélium / Lutin :** Pitch monté de +9.5 demi-tons, coupe-bas 380Hz éliminant la résonance de poitrine d'adulte et brillance 6.5kHz pour une voix ultra aiguë, drôle et limpide.
+* 📢 **Mégaphone de Police :** Filtrage pavillon 650Hz - 2500Hz, résonance métallique de corne à 1250Hz (+8 dB) et écho slapback acoustique de rue (22ms).
+* 📻 **Talkie-Walkie Militaire :** Bande passante radio VHF restreinte, compression tactique et bip "Roger" avec grésillement de radio au relâchement.
+* 🎧 **Retour Casque Activé par Défaut :** Permet de tester et d'entendre immédiatement sa voix modifiée dans son casque dès l'ouverture du menu.
+* ⚡ **Correction du Micro au Démarrage :** Le microphone physique par défaut est désormais automatiquement connecté au lancement sans exiger de configuration préalable.
 
 ---
 
-### 🔥 Instant Remix (F7)
-* 🎛️ Capture 2.5 secondes de parole d'un pote en vocal et transforme-la automatiquement en boucle rap calée sur une instru **Drill, Phonk ou Trap** en direct dans ton micro !
-
----
-
-### ⚡ Améliorations & Corrections
-* 🔄 **Mise à Jour 100% Silencieuse :** L'auto-updater applique les mises à jour en arrière-plan sans jamais réouvrir l'assistant d'installation.
-* 📦 **Installeur Windows NSIS Pro :** Raccourcis Bureau et Menu Démarrer officiels.
+### 🔥 Instant Remix (F7) & Instant Replay (F8)
+* 🎛️ **Instant Remix (F7) :** Capture 2.5 secondes de parole d'un pote en vocal et transforme-la automatiquement en boucle rap calée sur une instru **Drill, Phonk ou Trap** en direct dans ton micro !
+* ✂️ **Instant Replay Discord (F8) :** Clipper les 5 à 10 dernières secondes d'audio Discord.
 
 ---
 

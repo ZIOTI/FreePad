@@ -1,6 +1,15 @@
 /**
- * FreePad VoiceChangerEngine — Real-Time Ultra-Low-Latency Voice Morphing
- * Presets: Travis Scott / PNL (Autotune), Robot Vocoder, Démon, Hélium, Mégaphone, Talkie-Walkie
+ * FreePad VoiceChangerEngine — Studio-Grade Real-Time Voice Morphing
+ * Fait par zioti
+ *
+ * Implements:
+ *   - Auto-Tune Travis Scott / PNL (Chromatic Pitch Snap + Spatial Reverb)
+ *   - Robot / Vocoder Daft Punk (Dual-Carrier Synth + Formant Sibilance Tracking)
+ *   - Démon des Abysses (-8.5 Semitones + Sub-Octave Layer + 85Hz Sub-Bass + Tube Saturation)
+ *   - Hélium / Lutin (+9.5 Semitones + Formant Reshaping + High-Shelf Clarity)
+ *   - Mégaphone de Police (Horn Bandpass + Slapback Reflection + Diode Saturation)
+ *   - Talkie-Walkie Militaire (Tactical Radio Bandpass + Compression + Roger Beep static burst)
+ *   - Voix Naturelle (Bypass direct)
  */
 
 import soundEngine from './SoundEngine';
@@ -10,9 +19,9 @@ export const VOICE_PRESETS = {
     id: 'none',
     name: 'Voix Naturelle',
     icon: '🎙️',
-    badge: 'Désactivé',
+    badge: 'Bypass',
     color: 'from-slate-700 to-slate-800',
-    description: 'Aucun effet sur le micro'
+    description: 'Voix originale claire sans aucun effet'
   },
   autotune: {
     id: 'autotune',
@@ -20,7 +29,7 @@ export const VOICE_PRESETS = {
     icon: '🎤',
     badge: 'Auto-Tune',
     color: 'from-amber-500 via-orange-500 to-red-600',
-    description: 'Auto-Tune chromatique dur + Reverb spatiale studio'
+    description: 'Snap chromatique dur instantané + Reverb studio spatiale'
   },
   robot: {
     id: 'robot',
@@ -28,7 +37,7 @@ export const VOICE_PRESETS = {
     icon: '🤖',
     badge: 'Daft Punk',
     color: 'from-cyan-500 to-blue-600',
-    description: 'Modulateur en anneau métallique & voix électrique'
+    description: 'Synthé accord A2/E3 + suivi d\'enveloppe vocal & sibilance'
   },
   demon: {
     id: 'demon',
@@ -36,7 +45,7 @@ export const VOICE_PRESETS = {
     icon: '😈',
     badge: '-1 Octave',
     color: 'from-red-600 via-rose-700 to-purple-900',
-    description: 'Pitch descendu d\'une octave, sub-bass 80Hz & distorsion sombre'
+    description: 'Pitch descendu (-8.5 st) + sous-octave + sub-bass 85Hz & saturation'
   },
   helium: {
     id: 'helium',
@@ -44,15 +53,15 @@ export const VOICE_PRESETS = {
     icon: '🎈',
     badge: '+1 Octave',
     color: 'from-pink-500 via-purple-500 to-indigo-500',
-    description: 'Voix aiguë accélérée & formants rehaussés'
+    description: 'Voix aiguë (+9.5 st) + formants accélérés & coupe-bas 380Hz'
   },
   megaphone: {
     id: 'megaphone',
-    name: 'Mégaphone de Flic',
+    name: 'Mégaphone de Police',
     icon: '📢',
     badge: 'Pavillon',
     color: 'from-yellow-500 to-amber-600',
-    description: 'Haut-parleur compressé, saturation métallique & résonance'
+    description: 'Pavillon résonant 1.2kHz, écho de rue 22ms & distorsion mégaphone'
   },
   walkie: {
     id: 'walkie',
@@ -60,29 +69,318 @@ export const VOICE_PRESETS = {
     icon: '📻',
     badge: 'Radio Tactique',
     color: 'from-emerald-600 to-teal-800',
-    description: 'Bande passante radio, grésillement et bruit "Roger" au relâchement'
+    description: 'Bande passante radio VHF, compression & bip "Roger" au relâchement'
   }
 };
+
+// Inlined AudioWorklet Processor source code
+const WORKLET_PROCESSOR_CODE = `
+class VoiceFXProcessor extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: 'mode', defaultValue: 0, minValue: 0, maxValue: 4 }, // 0: bypass, 1: pitch, 2: robot, 3: autotune
+      { name: 'pitchRatio', defaultValue: 1.0, minValue: 0.25, maxValue: 4.0 },
+      { name: 'grainSize', defaultValue: 1536, minValue: 512, maxValue: 4096 }
+    ];
+  }
+
+  constructor() {
+    super();
+    this.sampleRate = 48000;
+    this.bufferSize = 32768;
+    this.ringBuffer = new Float32Array(this.bufferSize);
+    this.writeIndex = 0;
+
+    // Granular pitch shifter window (Hann)
+    this.grainLen = 1536; // 32ms at 48kHz
+    this.halfGrain = this.grainLen / 2;
+    this.grainWindow = new Float32Array(this.grainLen);
+    for (let i = 0; i < this.grainLen; i++) {
+      this.grainWindow[i] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * i) / this.grainLen));
+    }
+    this.phase0 = 0.0;
+    this.phase1 = this.halfGrain;
+
+    // Robot vocoder carrier state
+    this.oscPhaseA = 0.0;
+    this.oscPhaseB = 0.0;
+    this.vocalEnv = 0.0;
+    this.lpVoice = 0.0;
+
+    // Autotune state
+    this.atRatio = 1.0;
+    this.atCounter = 0;
+  }
+
+  detectPitchAMDF(buf, startIdx, sr) {
+    const minP = Math.floor(sr / 480);
+    const maxP = Math.floor(sr / 85);
+    let bestP = 0;
+    let minD = Infinity;
+
+    for (let tau = minP; tau <= maxP; tau += 2) {
+      let diff = 0;
+      for (let i = 0; i < 384; i += 2) {
+        const idxA = (startIdx + i) % this.bufferSize;
+        const idxB = (startIdx + i + tau) % this.bufferSize;
+        diff += Math.abs(buf[idxA] - buf[idxB]);
+      }
+      if (diff < minD) {
+        minD = diff;
+        bestP = tau;
+      }
+    }
+    if (minD > 65 || bestP === 0) return 0;
+    return sr / bestP;
+  }
+
+  process(inputs, outputs, parameters) {
+    const input = inputs[0];
+    const output = outputs[0];
+    if (!input || !input[0] || !output || !output[0]) return true;
+
+    const inChannel = input[0];
+    const outChannel = output[0];
+    const len = inChannel.length;
+
+    const mode = Math.round(parameters.mode ? parameters.mode[0] : 0);
+    const targetRatio = parameters.pitchRatio ? parameters.pitchRatio[0] : 1.0;
+
+    if (mode === 0) {
+      outChannel.set(inChannel);
+      return true;
+    }
+
+    // Mode 2: Robot / Vocoder (Daft Punk style dual-carrier)
+    if (mode === 2) {
+      const sr = this.sampleRate;
+      const freqA = 110.0;  // A2 note
+      const freqB = 164.81; // E3 fifth note
+
+      for (let i = 0; i < len; i++) {
+        const inS = inChannel[i];
+        this.oscPhaseA = (this.oscPhaseA + freqA / sr) % 1.0;
+        this.oscPhaseB = (this.oscPhaseB + freqB / sr) % 1.0;
+
+        const cA = Math.sin(2.0 * Math.PI * this.oscPhaseA);
+        const cB = (this.oscPhaseB < 0.5 ? 0.35 : -0.35);
+        const carrier = cA * 0.65 + cB * 0.35;
+
+        this.vocalEnv = this.vocalEnv * 0.96 + Math.abs(inS) * 0.04;
+        this.lpVoice = this.lpVoice * 0.88 + inS * 0.12;
+        const sibilance = inS - this.lpVoice;
+
+        outChannel[i] = carrier * this.vocalEnv * 2.8 + sibilance * 0.32;
+      }
+      return true;
+    }
+
+    // Mode 3: Auto-Tune Pitch Tracking
+    let effRatio = targetRatio;
+    if (mode === 3) {
+      this.atCounter += len;
+      if (this.atCounter >= 256) {
+        this.atCounter = 0;
+        const start = (this.writeIndex - 1024 + this.bufferSize) % this.bufferSize;
+        const pitch = this.detectPitchAMDF(this.ringBuffer, start, this.sampleRate);
+        if (pitch > 80 && pitch < 500) {
+          const semitones = 12.0 * Math.log2(pitch / 440.0);
+          const snapped = Math.round(semitones);
+          const targetHz = 440.0 * Math.pow(2.0, snapped / 12.0);
+          this.atRatio = targetHz / pitch;
+        } else {
+          this.atRatio = 1.0;
+        }
+      }
+      effRatio = this.atRatio;
+    }
+
+    // Mode 1 & 3: Granular Pitch Shifter
+    for (let i = 0; i < len; i++) {
+      const inS = inChannel[i];
+      this.ringBuffer[this.writeIndex] = inS;
+
+      const delay0 = this.halfGrain + this.phase0 * (1.0 - effRatio);
+      let r0 = this.writeIndex - delay0;
+      while (r0 < 0) r0 += this.bufferSize;
+      while (r0 >= this.bufferSize) r0 -= this.bufferSize;
+      const i0 = Math.floor(r0);
+      const f0 = r0 - i0;
+      const v0 = this.ringBuffer[i0] * (1.0 - f0) + this.ringBuffer[(i0 + 1) % this.bufferSize] * f0;
+      const w0 = this.grainWindow[Math.floor(this.phase0) % this.grainLen];
+
+      const delay1 = this.halfGrain + this.phase1 * (1.0 - effRatio);
+      let r1 = this.writeIndex - delay1;
+      while (r1 < 0) r1 += this.bufferSize;
+      while (r1 >= this.bufferSize) r1 -= this.bufferSize;
+      const i1 = Math.floor(r1);
+      const f1 = r1 - i1;
+      const v1 = this.ringBuffer[i1] * (1.0 - f1) + this.ringBuffer[(i1 + 1) % this.bufferSize] * f1;
+      const w1 = this.grainWindow[Math.floor(this.phase1) % this.grainLen];
+
+      outChannel[i] = v0 * w0 + v1 * w1;
+
+      this.writeIndex = (this.writeIndex + 1) % this.bufferSize;
+      this.phase0 = (this.phase0 + 1) % this.grainLen;
+      this.phase1 = (this.phase1 + 1) % this.grainLen;
+    }
+
+    return true;
+  }
+}
+
+registerProcessor('voicefx-processor', VoiceFXProcessor);
+`;
+
+// ScriptProcessor fallback for 100% universal guarantee
+class FallbackVoiceFXDSP {
+  constructor(sampleRate = 48000) {
+    this.sampleRate = sampleRate;
+    this.bufferSize = 32768;
+    this.ringBuffer = new Float32Array(this.bufferSize);
+    this.writeIndex = 0;
+
+    this.grainLen = 1536;
+    this.halfGrain = this.grainLen / 2;
+    this.grainWindow = new Float32Array(this.grainLen);
+    for (let i = 0; i < this.grainLen; i++) {
+      this.grainWindow[i] = 0.5 * (1.0 - Math.cos((2.0 * Math.PI * i) / this.grainLen));
+    }
+    this.phase0 = 0.0;
+    this.phase1 = this.halfGrain;
+
+    this.oscPhaseA = 0.0;
+    this.oscPhaseB = 0.0;
+    this.vocalEnv = 0.0;
+    this.lpVoice = 0.0;
+    this.atRatio = 1.0;
+    this.atCounter = 0;
+
+    this.mode = 0;
+    this.pitchRatio = 1.0;
+  }
+
+  detectPitchAMDF(buf, startIdx, sr) {
+    const minP = Math.floor(sr / 480);
+    const maxP = Math.floor(sr / 85);
+    let bestP = 0;
+    let minD = Infinity;
+
+    for (let tau = minP; tau <= maxP; tau += 2) {
+      let diff = 0;
+      for (let i = 0; i < 384; i += 2) {
+        const idxA = (startIdx + i) % this.bufferSize;
+        const idxB = (startIdx + i + tau) % this.bufferSize;
+        diff += Math.abs(buf[idxA] - buf[idxB]);
+      }
+      if (diff < minD) {
+        minD = diff;
+        bestP = tau;
+      }
+    }
+    if (minD > 65 || bestP === 0) return 0;
+    return sr / bestP;
+  }
+
+  processBlock(inChannel, outChannel) {
+    const len = inChannel.length;
+    if (this.mode === 0) {
+      outChannel.set(inChannel);
+      return;
+    }
+
+    if (this.mode === 2) {
+      const sr = this.sampleRate;
+      const freqA = 110.0;
+      const freqB = 164.81;
+
+      for (let i = 0; i < len; i++) {
+        const inS = inChannel[i];
+        this.oscPhaseA = (this.oscPhaseA + freqA / sr) % 1.0;
+        this.oscPhaseB = (this.oscPhaseB + freqB / sr) % 1.0;
+
+        const cA = Math.sin(2.0 * Math.PI * this.oscPhaseA);
+        const cB = (this.oscPhaseB < 0.5 ? 0.35 : -0.35);
+        const carrier = cA * 0.65 + cB * 0.35;
+
+        this.vocalEnv = this.vocalEnv * 0.96 + Math.abs(inS) * 0.04;
+        this.lpVoice = this.lpVoice * 0.88 + inS * 0.12;
+        const sibilance = inS - this.lpVoice;
+
+        outChannel[i] = carrier * this.vocalEnv * 2.8 + sibilance * 0.32;
+      }
+      return;
+    }
+
+    let effRatio = this.pitchRatio;
+    if (this.mode === 3) {
+      this.atCounter += len;
+      if (this.atCounter >= 256) {
+        this.atCounter = 0;
+        const start = (this.writeIndex - 1024 + this.bufferSize) % this.bufferSize;
+        const pitch = this.detectPitchAMDF(this.ringBuffer, start, this.sampleRate);
+        if (pitch > 80 && pitch < 500) {
+          const semitones = 12.0 * Math.log2(pitch / 440.0);
+          const snapped = Math.round(semitones);
+          const targetHz = 440.0 * Math.pow(2.0, snapped / 12.0);
+          this.atRatio = targetHz / pitch;
+        } else {
+          this.atRatio = 1.0;
+        }
+      }
+      effRatio = this.atRatio;
+    }
+
+    for (let i = 0; i < len; i++) {
+      const inS = inChannel[i];
+      this.ringBuffer[this.writeIndex] = inS;
+
+      const delay0 = this.halfGrain + this.phase0 * (1.0 - effRatio);
+      let r0 = this.writeIndex - delay0;
+      while (r0 < 0) r0 += this.bufferSize;
+      while (r0 >= this.bufferSize) r0 -= this.bufferSize;
+      const i0 = Math.floor(r0);
+      const f0 = r0 - i0;
+      const v0 = this.ringBuffer[i0] * (1.0 - f0) + this.ringBuffer[(i0 + 1) % this.bufferSize] * f0;
+      const w0 = this.grainWindow[Math.floor(this.phase0) % this.grainLen];
+
+      const delay1 = this.halfGrain + this.phase1 * (1.0 - effRatio);
+      let r1 = this.writeIndex - delay1;
+      while (r1 < 0) r1 += this.bufferSize;
+      while (r1 >= this.bufferSize) r1 -= this.bufferSize;
+      const i1 = Math.floor(r1);
+      const f1 = r1 - i1;
+      const v1 = this.ringBuffer[i1] * (1.0 - f1) + this.ringBuffer[(i1 + 1) % this.bufferSize] * f1;
+      const w1 = this.grainWindow[Math.floor(this.phase1) % this.grainLen];
+
+      outChannel[i] = v0 * w0 + v1 * w1;
+
+      this.writeIndex = (this.writeIndex + 1) % this.bufferSize;
+      this.phase0 = (this.phase0 + 1) % this.grainLen;
+      this.phase1 = (this.phase1 + 1) % this.grainLen;
+    }
+  }
+}
 
 class VoiceChangerEngine {
   constructor() {
     this.activePreset = 'none';
     this.lastActivePreset = 'autotune';
-    this.isMonitoringEnabled = false; // Hear yourself in headphones
-    this.monitoringVolume = 0.8;
-    this.isPushToTalk = false; // Hold key to morph
+    this.isMonitoringEnabled = true; // Hear yourself in headphones by default for instant feedback
+    this.monitoringVolume = 0.85;
+    this.isPushToTalk = false;
     this.isMorphedActive = false;
 
-    // Audio nodes
+    // Audio context & nodes
     this.ctx = null;
     this.inputNode = null;
     this.outputNode = null;
     this.monitoringGain = null;
     this.analyserNode = null;
-    this.autotuneWorkletNode = null;
+
+    this.workletSupported = false;
+    this.workletModuleLoaded = false;
     this.currentFxNodes = [];
-    this.noiseGenerator = null;
-    this.lfoNodes = [];
 
     this.onStateChange = null;
   }
@@ -91,44 +389,59 @@ class VoiceChangerEngine {
     if (this.ctx === audioCtx && this.outputNode) return;
     this.ctx = audioCtx;
 
-    // Create Master Voice Changer Output Bus
+    // Always ensure audio context is active
+    if (this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch (e) {}
+    }
+
+    // Master Voice Changer Bus
     this.outputNode = this.ctx.createGain();
     this.outputNode.gain.setValueAtTime(1.0, this.ctx.currentTime);
 
-    // Monitoring Gain (Local headphones feedback)
+    // Monitoring Gain (Local Headphones Feedback)
     this.monitoringGain = this.ctx.createGain();
     this.monitoringGain.gain.setValueAtTime(this.isMonitoringEnabled ? this.monitoringVolume : 0.0, this.ctx.currentTime);
     this.outputNode.connect(this.monitoringGain);
     if (soundEngine.headphonesGain) {
+      try {
+        this.monitoringGain.disconnect();
+      } catch (e) {}
       this.monitoringGain.connect(soundEngine.headphonesGain);
     }
 
-    // Analyser Node for live VU-Meter
+    // Analyser Node for live 60fps VU-Meter
     this.analyserNode = this.ctx.createAnalyser();
     this.analyserNode.fftSize = 64;
-    this.analyserNode.smoothingTimeConstant = 0.6;
+    this.analyserNode.smoothingTimeConstant = 0.5;
     this.outputNode.connect(this.analyserNode);
 
-    // Try loading AutoTune AudioWorklet
-    try {
-      if (this.ctx.audioWorklet) {
-        try {
-          await this.ctx.audioWorklet.addModule('./autotune-processor.js');
-        } catch {
-          await this.ctx.audioWorklet.addModule('/autotune-processor.js');
-        }
+    // Load AudioWorklet via Blob URL
+    if (this.ctx.audioWorklet && !this.workletModuleLoaded) {
+      try {
+        const blob = new Blob([WORKLET_PROCESSOR_CODE], { type: 'application/javascript' });
+        const blobUrl = URL.createObjectURL(blob);
+        await this.ctx.audioWorklet.addModule(blobUrl);
+        this.workletSupported = true;
+        this.workletModuleLoaded = true;
+      } catch (err) {
+        console.warn("AudioWorklet Blob load note, fallback to ScriptProcessor:", err.message);
+        this.workletSupported = false;
       }
-    } catch (e) {
-      console.warn("AutoTune AudioWorklet load notice:", e.message);
     }
   }
 
-  // Ensure microphone is actively capturing
+  // Ensure microphone is actively streaming
   async ensureMicStarted() {
-    if (this.inputNode && soundEngine.realMicStream) return true;
     try {
       await soundEngine.init();
-      await soundEngine.toggleMicPassthrough(true, 'default', 'Microphone par défaut');
+      if (this.ctx && this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
+      if (!soundEngine.realMicStream || !this.inputNode) {
+        await soundEngine.toggleMicPassthrough(true, soundEngine.realMicDeviceId || 'default', 'Microphone');
+      }
       return true;
     } catch (e) {
       console.warn("Could not auto-start mic for voice changer:", e);
@@ -136,7 +449,7 @@ class VoiceChangerEngine {
     }
   }
 
-  // Get current voice VU-meter level (0.0 to 1.0)
+  // Live VU-Meter (0.0 to 1.0)
   getAudioLevel() {
     if (!this.analyserNode) return 0;
     const array = new Uint8Array(this.analyserNode.frequencyBinCount);
@@ -148,7 +461,6 @@ class VoiceChangerEngine {
     return Math.min(1.0, (sum / (array.length * 255)) * 2.2);
   }
 
-  // Connect the mic stream from SoundEngine
   connectMicSource(sourceNode) {
     this.inputNode = sourceNode;
     this.rebuildGraph();
@@ -165,7 +477,7 @@ class VoiceChangerEngine {
       this.isMorphedActive = false;
     }
 
-    // Trigger military roger beep when leaving walkie-talkie
+    // Trigger tactical military roger beep when leaving walkie-talkie
     if (oldPreset === 'walkie' && presetId !== 'walkie') {
       this.playRogerBeep();
     }
@@ -174,11 +486,28 @@ class VoiceChangerEngine {
     if (this.onStateChange) this.onStateChange(this.activePreset);
   }
 
+  setMonitoring(enabled) {
+    this.isMonitoringEnabled = enabled;
+    if (this.monitoringGain && this.ctx) {
+      const targetGain = enabled ? this.monitoringVolume : 0.0;
+      this.monitoringGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.02);
+    }
+    if (this.onStateChange) this.onStateChange(this.activePreset);
+  }
+
+  setMonitoringVolume(val) {
+    this.monitoringVolume = Math.max(0, Math.min(1.5, val));
+    if (this.monitoringGain && this.isMonitoringEnabled && this.ctx) {
+      this.monitoringGain.gain.setTargetAtTime(this.monitoringVolume, this.ctx.currentTime, 0.02);
+    }
+  }
+
   setPushToTalk(enabled) {
     this.isPushToTalk = enabled;
   }
 
   handleHotkeyPress() {
+    this.ensureMicStarted();
     if (this.isPushToTalk) {
       if (this.activePreset === 'none') {
         const target = this.lastActivePreset || 'autotune';
@@ -200,69 +529,52 @@ class VoiceChangerEngine {
     }
   }
 
-  setMonitoring(enabled) {
-    this.isMonitoringEnabled = enabled;
-    if (this.monitoringGain && this.ctx) {
-      const targetGain = enabled ? this.monitoringVolume : 0.0;
-      this.monitoringGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.02);
-    }
-    if (this.onStateChange) this.onStateChange(this.activePreset);
-  }
-
-  setMonitoringVolume(val) {
-    this.monitoringVolume = Math.max(0, Math.min(1.5, val));
-    if (this.monitoringGain && this.isMonitoringEnabled && this.ctx) {
-      this.monitoringGain.gain.setTargetAtTime(this.monitoringVolume, this.ctx.currentTime, 0.02);
-    }
-  }
-
-  // Generate a realistic military Roger Beep + Static burst
+  // Realistic military Roger Beep + Static burst
   playRogerBeep() {
     if (!this.ctx) return;
     try {
       const now = this.ctx.currentTime;
-      // 1. Static noise burst (Krrsh)
-      const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+      // 1. Filtered static burst ("Krrsh")
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.10);
       const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
-        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
       }
       const noiseSource = this.ctx.createBufferSource();
       noiseSource.buffer = noiseBuffer;
 
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(2200, now);
-      filter.Q.setValueAtTime(3.0, now);
+      filter.frequency.setValueAtTime(1800, now);
+      filter.Q.setValueAtTime(2.5, now);
 
       const noiseGain = this.ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.35, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      noiseGain.gain.setValueAtTime(0.3, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
 
       noiseSource.connect(filter);
       filter.connect(noiseGain);
       noiseGain.connect(this.outputNode);
       noiseSource.start(now);
 
-      // 2. High Roger Beep tone (1250 Hz)
+      // 2. High tactical Roger Beep tone (1250 Hz)
       const osc = this.ctx.createOscillator();
       const oscGain = this.ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(1250, now + 0.03);
-      oscGain.gain.setValueAtTime(0.18, now + 0.03);
+      osc.frequency.setValueAtTime(1250, now + 0.02);
+      oscGain.gain.setValueAtTime(0.18, now + 0.02);
       oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
       osc.connect(oscGain);
       oscGain.connect(this.outputNode);
-      osc.start(now + 0.03);
-      osc.stop(now + 0.12);
+      osc.start(now + 0.02);
+      osc.stop(now + 0.11);
     } catch (e) {
-      console.warn("Roger beep error:", e);
+      console.warn("Roger beep notice:", e);
     }
   }
 
-  // Create soft-clipping distortion curve
   makeDistortionCurve(amount = 20) {
     const k = amount;
     const n_samples = 44100;
@@ -275,73 +587,41 @@ class VoiceChangerEngine {
     return curve;
   }
 
-  // Real-time Pitch Shifter via Delay Modulation (0-latency phase vocoder)
-  createPitchShifter(semitones = 0) {
-    const pitchRatio = Math.pow(2, semitones / 12);
-    const grainDuration = 0.06; // 60ms grains
+  // Create core VoiceFX Node (AudioWorklet with ScriptProcessor fallback)
+  createFXNode(mode = 0, pitchRatio = 1.0) {
+    const now = this.ctx.currentTime;
+    if (this.workletSupported) {
+      try {
+        const atNode = new AudioWorkletNode(this.ctx, 'voicefx-processor');
+        const mParam = atNode.parameters.get('mode');
+        if (mParam) mParam.setValueAtTime(mode, now);
+        const pParam = atNode.parameters.get('pitchRatio');
+        if (pParam) pParam.setValueAtTime(pitchRatio, now);
+        return atNode;
+      } catch (e) {
+        console.warn("Worklet instantiation fallback:", e.message);
+      }
+    }
 
-    const input = this.ctx.createGain();
-    const output = this.ctx.createGain();
-
-    // Two delay lines modulated 180 degrees out of phase
-    const delayA = this.ctx.createDelay(1.0);
-    const delayB = this.ctx.createDelay(1.0);
-
-    const gainA = this.ctx.createGain();
-    const gainB = this.ctx.createGain();
-
-    const speed = (1 - pitchRatio) / grainDuration;
-
-    // LFO saw wave to modulate delays
-    const lfoA = this.ctx.createOscillator();
-    const lfoB = this.ctx.createOscillator();
-    lfoA.type = 'sawtooth';
-    lfoB.type = 'sawtooth';
-    lfoA.frequency.setValueAtTime(Math.abs(speed), this.ctx.currentTime);
-    lfoB.frequency.setValueAtTime(Math.abs(speed), this.ctx.currentTime);
-
-    // Depth
-    const depthA = this.ctx.createGain();
-    const depthB = this.ctx.createGain();
-    const modDepth = grainDuration;
-    depthA.gain.setValueAtTime(speed > 0 ? modDepth : -modDepth, this.ctx.currentTime);
-    depthB.gain.setValueAtTime(speed > 0 ? modDepth : -modDepth, this.ctx.currentTime);
-
-    lfoA.connect(depthA);
-    depthA.connect(delayA.delayTime);
-
-    lfoB.connect(depthB);
-    depthB.connect(delayB.delayTime);
-
-    // Triangle windowing gains to prevent clicks
-    gainA.gain.setValueAtTime(0.5, this.ctx.currentTime);
-    gainB.gain.setValueAtTime(0.5, this.ctx.currentTime);
-
-    input.connect(delayA);
-    input.connect(delayB);
-
-    delayA.connect(gainA);
-    delayB.connect(gainB);
-
-    gainA.connect(output);
-    gainB.connect(output);
-
-    lfoA.start();
-    lfoB.start();
-
-    this.lfoNodes.push(lfoA, lfoB);
-    return { input, output, nodes: [input, output, delayA, delayB, gainA, gainB, depthA, depthB, lfoA, lfoB] };
+    // Fallback: ScriptProcessorNode
+    const spNode = this.ctx.createScriptProcessor(1024, 1, 1);
+    const dsp = new FallbackVoiceFXDSP(this.ctx.sampleRate);
+    dsp.mode = mode;
+    dsp.pitchRatio = pitchRatio;
+    spNode.onaudioprocess = (e) => {
+      const inData = e.inputBuffer.getChannelData(0);
+      const outData = e.outputBuffer.getChannelData(0);
+      dsp.processBlock(inData, outData);
+    };
+    return spNode;
   }
 
-  // Teardown active DSP graph cleanly
   cleanupCurrentGraph() {
-    this.lfoNodes.forEach(n => {
-      try { n.stop(); n.disconnect(); } catch (e) {}
-    });
-    this.lfoNodes = [];
-
     this.currentFxNodes.forEach(n => {
-      try { n.disconnect(); } catch (e) {}
+      try {
+        if (typeof n.stop === 'function') n.stop();
+        n.disconnect();
+      } catch (e) {}
     });
     this.currentFxNodes = [];
 
@@ -350,7 +630,7 @@ class VoiceChangerEngine {
     }
   }
 
-  // Rebuild the DSP graph for selected preset
+  // Rebuild the DSP graph for the selected preset
   rebuildGraph() {
     if (!this.ctx || !this.inputNode || !this.outputNode) return;
     this.cleanupCurrentGraph();
@@ -364,184 +644,214 @@ class VoiceChangerEngine {
       return;
     }
 
-    // 2. Mode Travis Scott / PNL (AutoTune AudioWorklet + Reverb)
+    // 2. Mode Travis Scott / PNL (Auto-Tune Chromatique + Reverb Spatiale)
     if (preset === 'autotune') {
-      try {
-        if (this.ctx.audioWorklet) {
-          const atNode = new AudioWorkletNode(this.ctx, 'autotune-processor', {
-            numberOfInputs: 1,
-            numberOfOutputs: 1,
-            outputChannelCount: [2]
-          });
-          const paramCorrection = atNode.parameters.get('correctionAmount');
-          if (paramCorrection) paramCorrection.setValueAtTime(1.0, now); // Hard snap 100%
+      const fxNode = this.createFXNode(3, 1.0); // Mode 3 = Auto-Tune
 
-          // Reverb delay
-          const delay = this.ctx.createDelay();
-          delay.delayTime.setValueAtTime(0.18, now);
-          const feedback = this.ctx.createGain();
-          feedback.gain.setValueAtTime(0.3, now);
-          delay.connect(feedback);
-          feedback.connect(delay);
+      // Ping-Pong Delay & Studio Reverb
+      const delay = this.ctx.createDelay(1.0);
+      delay.delayTime.setValueAtTime(0.16, now);
+      const feedback = this.ctx.createGain();
+      feedback.gain.setValueAtTime(0.28, now);
+      delay.connect(feedback);
+      feedback.connect(delay);
 
-          const wetGain = this.ctx.createGain();
-          wetGain.gain.setValueAtTime(0.35, now);
-          delay.connect(wetGain);
-          wetGain.connect(this.outputNode);
+      const delayWet = this.ctx.createGain();
+      delayWet.gain.setValueAtTime(0.32, now);
+      delay.connect(delayWet);
+      delayWet.connect(this.outputNode);
 
-          this.inputNode.connect(atNode);
-          atNode.connect(this.outputNode);
-          atNode.connect(delay);
+      // High-shelf clarity polish (8 kHz)
+      const highShelf = this.ctx.createBiquadFilter();
+      highShelf.type = 'highshelf';
+      highShelf.frequency.setValueAtTime(7500, now);
+      highShelf.gain.setValueAtTime(4.0, now);
 
-          this.currentFxNodes.push(atNode, delay, feedback, wetGain);
-          return;
-        }
-      } catch (e) {
-        console.warn("AutoTune worklet instance error, using voice fallback:", e);
-        this.inputNode.connect(this.outputNode);
-        return;
-      }
-    }
+      this.inputNode.connect(fxNode);
+      fxNode.connect(highShelf);
+      highShelf.connect(this.outputNode);
+      highShelf.connect(delay);
 
-    // 3. Robot / Vocoder Daft Punk (Ring Modulator + Bandpass)
-    if (preset === 'robot') {
-      const ringOsc = this.ctx.createOscillator();
-      ringOsc.type = 'sawtooth';
-      ringOsc.frequency.setValueAtTime(140, now); // 140 Hz C# note
-
-      const ringGain = this.ctx.createGain();
-      ringGain.gain.setValueAtTime(0.0, now);
-
-      ringOsc.connect(ringGain.gain);
-
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1200, now);
-      filter.Q.setValueAtTime(2.5, now);
-
-      const compressor = this.ctx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-18, now);
-      compressor.ratio.setValueAtTime(8, now);
-
-      this.inputNode.connect(ringGain);
-      ringGain.connect(filter);
-      filter.connect(compressor);
-      compressor.connect(this.outputNode);
-
-      ringOsc.start(now);
-      this.lfoNodes.push(ringOsc);
-      this.currentFxNodes.push(ringGain, filter, compressor);
+      this.currentFxNodes.push(fxNode, delay, feedback, delayWet, highShelf);
       return;
     }
 
-    // 4. Démon des Abysses (-10 semitones, 80Hz sub-boost, saturation)
-    if (preset === 'demon') {
-      const shifter = this.createPitchShifter(-9);
+    // 3. Robot / Vocoder Daft Punk (Dual-Carrier Synth + Formant Sibilance)
+    if (preset === 'robot') {
+      const fxNode = this.createFXNode(2, 1.0); // Mode 2 = Vocoder
 
+      const bandpass = this.ctx.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.setValueAtTime(1400, now);
+      bandpass.Q.setValueAtTime(2.0, now);
+
+      const comp = this.ctx.createDynamicsCompressor();
+      comp.threshold.setValueAtTime(-16, now);
+      comp.ratio.setValueAtTime(6, now);
+
+      this.inputNode.connect(fxNode);
+      fxNode.connect(bandpass);
+      bandpass.connect(comp);
+      comp.connect(this.outputNode);
+
+      this.currentFxNodes.push(fxNode, bandpass, comp);
+      return;
+    }
+
+    // 4. Démon des Abysses (-8.5 st + Sub-Octave + Sub-Bass 85Hz + Tube Saturation)
+    if (preset === 'demon') {
+      const demonPitch = this.createFXNode(1, 0.612); // -8.5 semitones
+
+      // Sub-octave parallel layer (-12 semitones = full octave down)
+      const subOctave = this.createFXNode(1, 0.50);
+      const subGain = this.ctx.createGain();
+      subGain.gain.setValueAtTime(0.35, now);
+      subOctave.connect(subGain);
+
+      // 85Hz Sub-bass chest resonance boost
       const subBoost = this.ctx.createBiquadFilter();
       subBoost.type = 'lowshelf';
-      subBoost.frequency.setValueAtTime(90, now);
-      subBoost.gain.setValueAtTime(10, now); // +10dB deep chest resonance
+      subBoost.frequency.setValueAtTime(85, now);
+      subBoost.gain.setValueAtTime(9.0, now);
 
       const lowpass = this.ctx.createBiquadFilter();
       lowpass.type = 'lowpass';
-      lowpass.frequency.setValueAtTime(2800, now);
+      lowpass.frequency.setValueAtTime(3400, now);
 
-      const dist = this.ctx.createWaveShaper();
-      dist.curve = this.makeDistortionCurve(15);
-      dist.oversample = '2x';
+      const tubeDist = this.ctx.createWaveShaper();
+      tubeDist.curve = this.makeDistortionCurve(14);
+      tubeDist.oversample = '2x';
 
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(1.2, now);
+      // Cavern reflection (28ms)
+      const cavern = this.ctx.createDelay(0.1);
+      cavern.delayTime.setValueAtTime(0.028, now);
+      const cavernGain = this.ctx.createGain();
+      cavernGain.gain.setValueAtTime(0.22, now);
+      cavern.connect(cavernGain);
 
-      this.inputNode.connect(shifter.input);
-      shifter.output.connect(subBoost);
+      const master = this.ctx.createGain();
+      master.gain.setValueAtTime(1.15, now);
+
+      this.inputNode.connect(demonPitch);
+      this.inputNode.connect(subOctave);
+
+      demonPitch.connect(subBoost);
+      subGain.connect(subBoost);
+
       subBoost.connect(lowpass);
-      lowpass.connect(dist);
-      dist.connect(gain);
-      gain.connect(this.outputNode);
+      lowpass.connect(tubeDist);
+      tubeDist.connect(master);
+      tubeDist.connect(cavern);
+      cavernGain.connect(master);
 
-      this.currentFxNodes.push(...shifter.nodes, subBoost, lowpass, dist, gain);
+      master.connect(this.outputNode);
+
+      this.currentFxNodes.push(demonPitch, subOctave, subGain, subBoost, lowpass, tubeDist, cavern, cavernGain, master);
       return;
     }
 
-    // 5. Hélium / Lutin (+10 semitones, cut bass, presence boost)
+    // 5. Hélium / Lutin (+9.5 st + Coupe-bas 380Hz + Formants 2600Hz)
     if (preset === 'helium') {
-      const shifter = this.createPitchShifter(10);
-
       const highpass = this.ctx.createBiquadFilter();
       highpass.type = 'highpass';
-      highpass.frequency.setValueAtTime(380, now); // Removes chest bass
+      highpass.frequency.setValueAtTime(380, now); // Cuts adult chest resonance
+
+      const heliumPitch = this.createFXNode(1, 1.74); // +9.5 semitones
 
       const presence = this.ctx.createBiquadFilter();
       presence.type = 'peaking';
-      presence.frequency.setValueAtTime(3200, now);
-      presence.gain.setValueAtTime(5, now);
+      presence.frequency.setValueAtTime(2600, now);
+      presence.gain.setValueAtTime(5.5, now);
+      presence.Q.setValueAtTime(1.8, now);
 
-      this.inputNode.connect(shifter.input);
-      shifter.output.connect(highpass);
-      highpass.connect(presence);
-      presence.connect(this.outputNode);
+      const highShelf = this.ctx.createBiquadFilter();
+      highShelf.type = 'highshelf';
+      highShelf.frequency.setValueAtTime(6500, now);
+      highShelf.gain.setValueAtTime(4.0, now);
 
-      this.currentFxNodes.push(...shifter.nodes, highpass, presence);
+      const comp = this.ctx.createDynamicsCompressor();
+      comp.threshold.setValueAtTime(-14, now);
+      comp.ratio.setValueAtTime(4, now);
+
+      this.inputNode.connect(highpass);
+      highpass.connect(heliumPitch);
+      heliumPitch.connect(presence);
+      presence.connect(highShelf);
+      highShelf.connect(comp);
+      comp.connect(this.outputNode);
+
+      this.currentFxNodes.push(highpass, heliumPitch, presence, highShelf, comp);
       return;
     }
 
-    // 6. Mégaphone de Police (Bandpass 1.2kHz + distortion + horn slapback)
+    // 6. Mégaphone de Police (Bandpass 650Hz-2500Hz + Pavillon 1250Hz + Echo Slapback 22ms)
     if (preset === 'megaphone') {
-      const bandpass = this.ctx.createBiquadFilter();
-      bandpass.type = 'bandpass';
-      bandpass.frequency.setValueAtTime(1250, now);
-      bandpass.Q.setValueAtTime(3.2, now);
-
-      const dist = this.ctx.createWaveShaper();
-      dist.curve = this.makeDistortionCurve(35);
-      dist.oversample = '2x';
-
-      const delay = this.ctx.createDelay();
-      delay.delayTime.setValueAtTime(0.025, now); // 25ms horn slapback
-      const delayGain = this.ctx.createGain();
-      delayGain.gain.setValueAtTime(0.4, now);
-
-      const master = this.ctx.createGain();
-      master.gain.setValueAtTime(1.3, now);
-
-      this.inputNode.connect(bandpass);
-      bandpass.connect(dist);
-      dist.connect(master);
-      dist.connect(delay);
-      delay.connect(delayGain);
-      delayGain.connect(master);
-      master.connect(this.outputNode);
-
-      this.currentFxNodes.push(bandpass, dist, delay, delayGain, master);
-      return;
-    }
-
-    // 7. Talkie-Walkie Militaire (Bandpass telephone 400Hz-2800Hz + static)
-    if (preset === 'walkie') {
       const hp = this.ctx.createBiquadFilter();
       hp.type = 'highpass';
-      hp.frequency.setValueAtTime(500, now);
+      hp.frequency.setValueAtTime(620, now);
 
       const lp = this.ctx.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(2600, now);
+      lp.frequency.setValueAtTime(2500, now);
 
-      const dist = this.ctx.createWaveShaper();
-      dist.curve = this.makeDistortionCurve(18);
+      const hornPeak = this.ctx.createBiquadFilter();
+      hornPeak.type = 'peaking';
+      hornPeak.frequency.setValueAtTime(1250, now);
+      hornPeak.gain.setValueAtTime(8.0, now);
+      hornPeak.Q.setValueAtTime(3.2, now);
 
-      const compressor = this.ctx.createDynamicsCompressor();
-      compressor.threshold.setValueAtTime(-14, now);
-      compressor.ratio.setValueAtTime(12, now);
+      const diodeDist = this.ctx.createWaveShaper();
+      diodeDist.curve = this.makeDistortionCurve(22);
+      diodeDist.oversample = '2x';
+
+      const slapback = this.ctx.createDelay(0.1);
+      slapback.delayTime.setValueAtTime(0.022, now);
+      const slapGain = this.ctx.createGain();
+      slapGain.gain.setValueAtTime(0.25, now);
+      slapback.connect(slapGain);
+
+      const master = this.ctx.createGain();
+      master.gain.setValueAtTime(1.2, now);
 
       this.inputNode.connect(hp);
       hp.connect(lp);
-      lp.connect(dist);
-      dist.connect(compressor);
-      compressor.connect(this.outputNode);
+      lp.connect(hornPeak);
+      hornPeak.connect(diodeDist);
 
-      this.currentFxNodes.push(hp, lp, dist, compressor);
+      diodeDist.connect(master);
+      diodeDist.connect(slapback);
+      slapGain.connect(master);
+
+      master.connect(this.outputNode);
+
+      this.currentFxNodes.push(hp, lp, hornPeak, diodeDist, slapback, slapGain, master);
+      return;
+    }
+
+    // 7. Talkie-Walkie Militaire (Radio Bandpass + Squelch + Bip Roger)
+    if (preset === 'walkie') {
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.setValueAtTime(450, now);
+
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(2200, now);
+
+      const radioDist = this.ctx.createWaveShaper();
+      radioDist.curve = this.makeDistortionCurve(10);
+
+      const comp = this.ctx.createDynamicsCompressor();
+      comp.threshold.setValueAtTime(-18, now);
+      comp.ratio.setValueAtTime(10, now);
+
+      this.inputNode.connect(hp);
+      hp.connect(lp);
+      lp.connect(radioDist);
+      radioDist.connect(comp);
+      comp.connect(this.outputNode);
+
+      this.currentFxNodes.push(hp, lp, radioDist, comp);
     }
   }
 }

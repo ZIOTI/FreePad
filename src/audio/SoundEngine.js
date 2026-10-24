@@ -215,6 +215,9 @@ class SoundEngine {
 
     try {
       await this.init();
+      if (this.ctx && this.ctx.state === 'suspended') {
+        await this.ctx.resume();
+      }
       if (this.broadcastCtx && this.broadcastCtx.state === 'suspended') {
         await this.broadcastCtx.resume();
       }
@@ -235,6 +238,7 @@ class SoundEngine {
       };
 
       this.realMicStream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.realMicDeviceId = inputDeviceId || 'default';
 
       // Create mic source and analyser in this.ctx
       this.realMicSourceNode = this.ctx.createMediaStreamSource(this.realMicStream);
@@ -256,7 +260,9 @@ class SoundEngine {
       }
 
       // Forward morphed voice to broadcast bus (VB-Cable / Discord)
-      if (this.broadcastCtx) {
+      // Only route if a dedicated virtual cable or secondary device is chosen (prevents feedback loop into headphones)
+      const isDedicatedBroadcast = this.broadcastDeviceId && this.broadcastDeviceId !== 'default' && this.broadcastDeviceId !== this.localDeviceId;
+      if (this.broadcastCtx && isDedicatedBroadcast) {
         if (!this.micPassthroughGain) {
           this.micPassthroughGain = this.broadcastCtx.createGain();
           if (this.broadcastMasterGain) {

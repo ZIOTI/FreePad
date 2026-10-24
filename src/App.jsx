@@ -125,7 +125,7 @@ export default function App() {
     return localStorage.getItem('freepad_broadcast_output') || 'default';
   });
   const [selectedMicInput, setSelectedMicInput] = useState(() => {
-    return localStorage.getItem('freepad_selected_mic') || '';
+    return localStorage.getItem('freepad_selected_mic') || 'default';
   });
   const [isMicPassthrough, setIsMicPassthrough] = useState(true);
   const [realMicVol, setRealMicVol] = useState(1.0);
