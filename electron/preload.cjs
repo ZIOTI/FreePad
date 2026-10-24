@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopApoPcm: () => ipcRenderer.invoke('stop-apo-pcm'),
   installApoDriver: () => ipcRenderer.invoke('install-apo-driver'),
 
+  // Real-Time Voice Changer APO Live Injection
+  startVoiceStream: (opts) => ipcRenderer.invoke('start-voice-stream', opts),
+  sendVoiceStreamChunk: (opts) => ipcRenderer.invoke('send-voice-stream-chunk', opts),
+  stopVoiceStream: () => ipcRenderer.invoke('stop-voice-stream'),
+
   // Backward compatibility aliases
   checkSoundpadStatus: () => ipcRenderer.invoke('check-apo-status'),
   playSoundpadSound: (opts) => ipcRenderer.invoke('play-apo-pcm', opts),

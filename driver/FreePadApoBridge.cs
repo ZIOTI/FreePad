@@ -604,6 +604,68 @@ class FreePadApoBridge {
                         StopPlayback();
                         writer.WriteLine("STOPPED");
                     }
+                    else if (line.StartsWith("SET_BLOCK_VOICE ")) {
+                        int blockVal = int.Parse(line.Substring(16).Trim());
+                        try {
+                            using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Leppsoft\UniteFx", true)) {
+                                if (key != null) {
+                                    key.SetValue("FilterBlockVoice", blockVal, Microsoft.Win32.RegistryValueKind.DWord);
+                                }
+                            }
+                        } catch (Exception ex) {
+                            SafeLog("[FreePadApoBridge] Set FilterBlockVoice error: " + ex.Message);
+                        }
+                        for (int i = 0; i < activeSlots.Count; i++) {
+                            if (activeSlots[i].hControlCallback != IntPtr.Zero) SetEvent(activeSlots[i].hControlCallback);
+                        }
+                        SafeLog("[FreePadApoBridge] FilterBlockVoice set to " + blockVal);
+                        writer.WriteLine("OK");
+                    }
+                    else if (line == "START_VOICE_STREAM") {
+                        writer.WriteLine("STREAM_READY");
+                        SafeLog("[FreePadApoBridge] Persistent Voice Stream started");
+                        byte[] lenBuf = new byte[4];
+                        while (server.IsConnected) {
+                            int r = 0;
+                            while (r < 4) {
+                                int n = server.Read(lenBuf, r, 4 - r);
+                                if (n <= 0) break;
+                                r += n;
+                            }
+                            if (r < 4) break;
+
+                            int chunkLen = BitConverter.ToInt32(lenBuf, 0);
+                            if (chunkLen <= 0 || chunkLen > 65536) break;
+
+                            byte[] pcmData = new byte[chunkLen];
+                            int readTotal = 0;
+                            while (readTotal < chunkLen) {
+                                int n = server.Read(pcmData, readTotal, chunkLen - readTotal);
+                                if (n <= 0) break;
+                                readTotal += n;
+                            }
+                            if (readTotal < chunkLen) break;
+
+                            if (activeSlots.Count == 0) InitApo();
+
+                            for (int i = 0; i < activeSlots.Count; i++) {
+                                var slot = activeSlots[i];
+                                try {
+                                    int waitCount = 0;
+                                    while (waitCount < 5 && Marshal.ReadInt32(slot.pView, 0x2C) != 0) {
+                                        Thread.Sleep(1);
+                                        waitCount++;
+                                    }
+                                    Marshal.Copy(pcmData, 0, new IntPtr(slot.pView.ToInt64() + 0x34), chunkLen);
+                                    Marshal.WriteInt32(slot.pView, 0x30, chunkLen);
+                                    Marshal.WriteInt32(slot.pView, 0x2C, 1);
+                                    if (slot.hCallback != IntPtr.Zero) SetEvent(slot.hCallback);
+                                } catch {}
+                            }
+                        }
+                        SafeLog("[FreePadApoBridge] Persistent Voice Stream ended");
+                        return;
+                    }
                     else if (line == "START_REPLAY") {
                         StartWasapiReplay();
                         writer.WriteLine("REPLAY_STARTED");

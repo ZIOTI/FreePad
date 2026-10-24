@@ -143,9 +143,62 @@ class SoundEngine {
 
       if (this.broadcastDeviceId && this.broadcastDeviceId !== 'default') {
         this.setOutputDevice('broadcast', this.broadcastDeviceId).catch(() => {});
+      } else {
+        // Auto-detect virtual device (Voicemod, Steam, VB-Cable) for zero-config Discord routing
+        this.autoDetectVirtualDevice().then(dev => {
+          if (dev && this.broadcastDeviceId === 'default') {
+            this.setOutputDevice('broadcast', dev.deviceId).catch(() => {});
+          }
+        });
       }
     } catch (e) {
       console.warn("Broadcast context:", e);
+    }
+  }
+
+  async autoDetectVirtualDevice() {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const outputs = devices.filter(d => d.kind === 'audiooutput');
+      const virtualKeywords = ['cable input', 'vb-audio', 'voicemod', 'steam streaming', 'virtual'];
+      for (const kw of virtualKeywords) {
+        const found = outputs.find(d => d.label && d.label.toLowerCase().includes(kw));
+        if (found) {
+          console.log(`[SoundEngine] Auto-detected virtual broadcast device: ${found.label} (${found.deviceId})`);
+          return found;
+        }
+      }
+    } catch (e) {
+      console.warn("Virtual device detection notice:", e);
+    }
+    return null;
+  }
+
+  ensureBroadcastBridge() {
+    if (!this.ctx || !this.broadcastCtx) return;
+    const isDedicatedBroadcast = this.broadcastDeviceId && this.broadcastDeviceId !== 'default' && this.broadcastDeviceId !== this.localDeviceId;
+    if (!isDedicatedBroadcast) return;
+
+    if (!this.micPassthroughGain) {
+      this.micPassthroughGain = this.broadcastCtx.createGain();
+      if (this.broadcastMasterGain) {
+        this.micPassthroughGain.connect(this.broadcastMasterGain);
+      } else {
+        this.micPassthroughGain.connect(this.broadcastCtx.destination);
+      }
+    }
+    this.micPassthroughGain.gain.setValueAtTime(this.realMicVolume, this.broadcastCtx.currentTime);
+
+    if (!this.micBroadcastBridgeStream && voiceChangerEngine && voiceChangerEngine.outputNode) {
+      try {
+        this.micBroadcastBridgeDest = this.ctx.createMediaStreamDestination();
+        voiceChangerEngine.outputNode.connect(this.micBroadcastBridgeDest);
+        this.micBroadcastBridgeStream = this.broadcastCtx.createMediaStreamSource(this.micBroadcastBridgeDest.stream);
+        this.micBroadcastBridgeStream.connect(this.micPassthroughGain);
+      } catch (e) {
+        console.warn("ensureBroadcastBridge bridge notice:", e);
+      }
     }
   }
 
@@ -188,6 +241,7 @@ class SoundEngine {
           console.warn("Error setting broadcastCtx sink ID:", e);
         }
       }
+      this.ensureBroadcastBridge();
     }
   }
 
@@ -260,26 +314,7 @@ class SoundEngine {
       }
 
       // Forward morphed voice to broadcast bus (VB-Cable / Discord)
-      // Only route if a dedicated virtual cable or secondary device is chosen (prevents feedback loop into headphones)
-      const isDedicatedBroadcast = this.broadcastDeviceId && this.broadcastDeviceId !== 'default' && this.broadcastDeviceId !== this.localDeviceId;
-      if (this.broadcastCtx && isDedicatedBroadcast) {
-        if (!this.micPassthroughGain) {
-          this.micPassthroughGain = this.broadcastCtx.createGain();
-          if (this.broadcastMasterGain) {
-            this.micPassthroughGain.connect(this.broadcastMasterGain);
-          } else {
-            this.micPassthroughGain.connect(this.broadcastCtx.destination);
-          }
-        }
-        this.micPassthroughGain.gain.setValueAtTime(this.realMicVolume, this.broadcastCtx.currentTime);
-
-        if (!this.micBroadcastBridgeStream) {
-          this.micBroadcastBridgeDest = this.ctx.createMediaStreamDestination();
-          voiceChangerEngine.outputNode.connect(this.micBroadcastBridgeDest);
-          this.micBroadcastBridgeStream = this.broadcastCtx.createMediaStreamSource(this.micBroadcastBridgeDest.stream);
-          this.micBroadcastBridgeStream.connect(this.micPassthroughGain);
-        }
-      }
+      this.ensureBroadcastBridge();
     } catch (err) {
       console.error("Failed to enable mic passthrough:", err);
       this.isMicPassthroughEnabled = false;
@@ -360,6 +395,72 @@ class SoundEngine {
         }
       }
     }
+  }
+
+  async recordVoiceEchoTest(durationSec = 3.0, onProgress = null) {
+    await this.init();
+    if (this.ctx && this.ctx.state === 'suspended') await this.ctx.resume();
+
+    // Ensure mic is running
+    if (!this.realMicStream || !this.realMicSourceNode) {
+      await this.toggleMicPassthrough(true, this.realMicDeviceId || 'default', 'Microphone');
+    }
+
+    const sr = this.ctx.sampleRate || 48000;
+    const totalSamples = Math.floor(sr * durationSec);
+    const recordedBuffer = new Float32Array(totalSamples);
+    let writeIdx = 0;
+
+    const sourceToRecord = (voiceChangerEngine && voiceChangerEngine.outputNode) 
+      ? voiceChangerEngine.outputNode 
+      : this.realMicSourceNode;
+
+    if (!sourceToRecord) return false;
+
+    const recorderNode = this.ctx.createScriptProcessor(1024, 1, 1);
+    recorderNode.onaudioprocess = (e) => {
+      const inData = e.inputBuffer.getChannelData(0);
+      for (let i = 0; i < inData.length && writeIdx < totalSamples; i++) {
+        recordedBuffer[writeIdx++] = inData[i];
+      }
+      if (typeof onProgress === 'function') {
+        onProgress(Math.min(1.0, writeIdx / totalSamples));
+      }
+    };
+
+    sourceToRecord.connect(recorderNode);
+    const nullGain = this.ctx.createGain();
+    nullGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    recorderNode.connect(nullGain);
+    nullGain.connect(this.ctx.destination);
+
+    await new Promise((resolve) => setTimeout(resolve, durationSec * 1000 + 150));
+
+    try {
+      recorderNode.disconnect();
+      nullGain.disconnect();
+    } catch (e) {}
+
+    // Immediate playback into user's headphones
+    const validCount = Math.max(writeIdx, 1024);
+    const audioBuf = this.ctx.createBuffer(1, validCount, sr);
+    audioBuf.copyToChannel(recordedBuffer.subarray(0, validCount), 0);
+
+    const playSource = this.ctx.createBufferSource();
+    playSource.buffer = audioBuf;
+
+    const playGain = this.ctx.createGain();
+    playGain.gain.setValueAtTime(1.1, this.ctx.currentTime);
+
+    playSource.connect(playGain);
+    if (this.headphonesGain) {
+      playGain.connect(this.headphonesGain);
+    } else {
+      playGain.connect(this.ctx.destination);
+    }
+
+    playSource.start(0);
+    return true;
   }
 
   async loadAudio(url) {

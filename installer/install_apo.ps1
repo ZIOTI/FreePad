@@ -250,6 +250,21 @@ $unixNow = [int][double]::Parse((Get-Date -UFormat %s))
 
 foreach ($cfgPath in $cfgPaths) {
     New-Item -Path $cfgPath -Force -ErrorAction SilentlyContinue | Out-Null
+    try {
+        $parentKey = Split-Path -Parent $cfgPath
+        $acl = Get-Acl $parentKey -ErrorAction SilentlyContinue
+        if ($acl) {
+            $rule = New-Object System.Security.AccessControl.RegistryAccessRule("Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+            $acl.AddAccessRule($rule)
+            Set-Acl -Path $parentKey -AclObject $acl -ErrorAction SilentlyContinue
+        }
+        $aclSub = Get-Acl $cfgPath -ErrorAction SilentlyContinue
+        if ($aclSub) {
+            $ruleSub = New-Object System.Security.AccessControl.RegistryAccessRule("Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+            $aclSub.AddAccessRule($ruleSub)
+            Set-Acl -Path $cfgPath -AclObject $aclSub -ErrorAction SilentlyContinue
+        }
+    } catch {}
     Set-ItemProperty -Path $cfgPath -Name "CaptureDevices" -Value $devListStr -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $cfgPath -Name "LogLevel" -Value "ERROR" -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $cfgPath -Name "FilterBlockVoice" -Value 0 -Type DWord -ErrorAction SilentlyContinue

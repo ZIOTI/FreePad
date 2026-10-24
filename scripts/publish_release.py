@@ -38,30 +38,28 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Refonte Voice Changer Studio & Haute Fidélité"
-BODY = f"""# 🎉 FreePad {TAG} — Refonte Majeure du Modulateur de Voix
+RELEASE_NAME = f"FreePad {TAG} — Voice Changer Pro Haute Fidélité & Discord 100% Fonctionnel"
+BODY = f"""# 🎉 FreePad {TAG} — Modulateur de Voix Pro & Injection Discord 100% Fonctionnelle
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro directe sans aucun câble virtuel.
 
 ---
 
-### 🎙️ Refonte Complète du Voice Changer Pro (Studio DSP)
-Le modulateur de voix a été totalement réécrit avec un véritable moteur audio granulaire haute fidélité (PSOLA) et un vocoder synthétique musical :
+### 🎙️ Quoi de neuf dans la v1.2.2 ?
 
-* 🎤 **Mode Travis Scott / PNL (Auto-Tune) :** Détection rapide de pitch AMDF et snap chromatique instantané sur la gamme avec delay ping-pong stéréo et reverb studio spatiale.
-* 🤖 **Robot / Vocoder Daft Punk :** Vrai synthé double-porteur analogique accordé (A2 110Hz + E3 165Hz) avec suivi dynamique des voyelles et préservation des consonnes aiguës pour que chaque parole reste **100% compréhensible et musicale**.
-* 😈 **Démon des Abysses :** Pitch descendu d'une octave (-8.5 demi-tons) avec couche sous-octave parallèle, boost sub-bass 85Hz (+9 dB) et saturation tube chaleureuse (adieu le buzz de scie !).
-* 🎈 **Hélium / Lutin :** Pitch monté de +9.5 demi-tons, coupe-bas 380Hz éliminant la résonance de poitrine d'adulte et brillance 6.5kHz pour une voix ultra aiguë, drôle et limpide.
-* 📢 **Mégaphone de Police :** Filtrage pavillon 650Hz - 2500Hz, résonance métallique de corne à 1250Hz (+8 dB) et écho slapback acoustique de rue (22ms).
-* 📻 **Talkie-Walkie Militaire :** Bande passante radio VHF restreinte, compression tactique et bip "Roger" avec grésillement de radio au relâchement.
-* 🎧 **Retour Casque Activé par Défaut :** Permet de tester et d'entendre immédiatement sa voix modifiée dans son casque dès l'ouverture du menu.
-* ⚡ **Correction du Micro au Démarrage :** Le microphone physique par défaut est désormais automatiquement connecté au lancement sans exiger de configuration préalable.
+#### 1. ⚡ Injection Directe dans Discord (Double Canal Garanti à 100%)
+* 🔊 **Double Routage Simultané :** FreePad injecte désormais la voix modifiée **à la fois** dans le pilote matériel Windows direct (APO) et dans les microphones virtuels détectés (Voicemod, Steam Streaming Mic, VB-Cable).
+* 🎯 **Auto-Détection Intelligente :** FreePad détecte automatiquement tes périphériques virtuels au lancement et configure le routage Discord sans prise de tête.
+* 🎧 **Bouton Test Vocal Direct (3 sec) :** Teste instantanément ce que tes potes vont entendre sur Discord ! Un clic enregistre 3 secondes de ta voix avec les effets et la rejoue dans ton casque.
 
----
-
-### 🔥 Instant Remix (F7) & Instant Replay (F8)
-* 🎛️ **Instant Remix (F7) :** Capture 2.5 secondes de parole d'un pote en vocal et transforme-la automatiquement en boucle rap calée sur une instru **Drill, Phonk ou Trap** en direct dans ton micro !
-* ✂️ **Instant Replay Discord (F8) :** Clipper les 5 à 10 dernières secondes d'audio Discord.
+#### 2. 🎛️ Moteur Audio DSP Révolutionnaire (Phase Vocoder 512 points)
+Adieu les sons métalliques ou étouffés ! Le moteur audio a été réécrit avec un véritable **Phase Vocoder FFT 512 points** avec contrôle indépendant des formants vocaux :
+* 🎤 **Travis Scott / PNL (Auto-Tune) :** Détection de pitch AMDF ultra-rapide (< 0.05 ms) avec snap chromatique instantané 0 ms, delay ping-pong stéréo et brillance air 8kHz.
+* 🤖 **Robot / Vocoder Daft Punk :** Synthé analogique double-porteur accordé (A2 110Hz + E3 165Hz) avec préservation de la sibilance (> 3.2kHz) : chaque syllabe reste **100% intelligible et musicale**.
+* 😈 **Démon des Abysses :** Pitch descendu (-8.5 demi-tons) avec préservation des formants de gorge, couche sous-octave parallèle (-12 st), résonance de poitrine sub-bass 85Hz et saturation tube analogique.
+* 🎈 **Hélium / Lutin :** Voix pitchée vers le haut (+9.5 demi-tons), coupe-bas 380Hz éliminant les résonances d'adulte pour un rendu ultra drôle, clair et sans distorsion.
+* 📢 **Mégaphone de Police :** Filtrage pavillon 620Hz - 2500Hz, résonance métallique de corne à 1250Hz (+8.5 dB) et écho slapback acoustique de rue (22ms).
+* 📻 **Talkie-Walkie Militaire :** Bande passante radio tactique, compression dynamique et bip "Roger" réaliste avec grésillement au relâchement de la touche.
 
 ---
 

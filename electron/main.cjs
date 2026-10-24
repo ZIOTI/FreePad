@@ -398,6 +398,79 @@ ipcMain.handle('stop-apo-pcm', async () => {
   return await sendApoCommand('STOP');
 });
 
+// Persistent low-latency streaming socket for real-time Voice Changer APO injection
+let voiceStreamSocket = null;
+
+ipcMain.handle('start-voice-stream', async (event, { blockVoice = true } = {}) => {
+  try {
+    await ensureApoBridgeRunning();
+    if (blockVoice) {
+      await sendApoCommand('SET_BLOCK_VOICE 1');
+    }
+    if (voiceStreamSocket) {
+      try { voiceStreamSocket.destroy(); } catch (e) {}
+      voiceStreamSocket = null;
+    }
+
+    return new Promise((resolve) => {
+      const socket = net.connect('\\\\.\\pipe\\freepad_apo', () => {
+        socket.write('START_VOICE_STREAM\n');
+      });
+
+      socket.once('data', (data) => {
+        const text = data.toString('utf8').trim();
+        if (text.includes('STREAM_READY')) {
+          voiceStreamSocket = socket;
+          resolve({ success: true });
+        } else {
+          resolve({ success: false, error: text });
+        }
+      });
+
+      socket.on('error', (err) => {
+        console.warn('voiceStreamSocket error:', err.message);
+        voiceStreamSocket = null;
+        resolve({ success: false, error: err.message });
+      });
+
+      socket.on('close', () => {
+        voiceStreamSocket = null;
+      });
+    });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('send-voice-stream-chunk', async (event, { pcmArray }) => {
+  if (!voiceStreamSocket || voiceStreamSocket.destroyed) {
+    return { success: false, error: 'Stream socket not active' };
+  }
+  try {
+    const buffer = Buffer.isBuffer(pcmArray) ? pcmArray : Buffer.from(pcmArray);
+    const lenBuf = Buffer.allocUnsafe(4);
+    lenBuf.writeInt32LE(buffer.length, 0);
+    voiceStreamSocket.write(lenBuf);
+    voiceStreamSocket.write(buffer);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('stop-voice-stream', async () => {
+  try {
+    if (voiceStreamSocket) {
+      try { voiceStreamSocket.end(); } catch (e) {}
+      voiceStreamSocket = null;
+    }
+    await sendApoCommand('SET_BLOCK_VOICE 0');
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 // Run 1-click APO driver installer with administrator UAC elevation
 ipcMain.handle('install-apo-driver', async () => {
   try {
