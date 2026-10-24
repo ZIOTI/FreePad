@@ -43,6 +43,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('trigger-instant-replay', handler);
   },
 
+  // Instant Remix Pote (F7)
+  setRemixHotkey: (opts) => ipcRenderer.invoke('set-remix-hotkey', opts),
+  onTriggerInstantRemix: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('trigger-instant-remix', handler);
+    return () => ipcRenderer.removeListener('trigger-instant-remix', handler);
+  },
+
   onTriggerSound: (callback) => {
     const handler = (event, soundId) => callback(soundId);
     ipcRenderer.on('trigger-sound-hotkey', handler);

@@ -39,6 +39,8 @@ import RemoteControlModal from './components/RemoteControlModal';
 import MediaImportModal from './components/MediaImportModal';
 import AudioTrimmerModal from './components/AudioTrimmerModal';
 import UpdateModal from './components/UpdateModal';
+import InstantRemixModal from './components/InstantRemixModal';
+import instantRemixEngine from './audio/InstantRemixEngine';
 import { parseSpl, exportToSpl, getRandomColor } from './utils/splParser';
 
 const INITIAL_SOUNDS = [
@@ -158,6 +160,7 @@ export default function App() {
   const [trimmingSound, setTrimmingSound] = useState(null);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
+  const [isRemixModalOpen, setIsRemixModalOpen] = useState(false);
 
   // Auto-updater listener
   useEffect(() => {
@@ -168,6 +171,22 @@ export default function App() {
     });
     return () => {
       if (unreg) unreg();
+    };
+  }, []);
+
+  // Instant Remix F7 Global Trigger
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    const unregRemix = window.electronAPI.onTriggerInstantRemix?.(() => {
+      showToast("🔥 Remix en cours dans ton micro !", "info");
+      instantRemixEngine.triggerRemix({ style: 'drill', captureSeconds: 2.5 }).then((res) => {
+        if (!res?.success && res?.error) {
+          showToast(`Erreur remix: ${res.error}`, "error");
+        }
+      });
+    });
+    return () => {
+      if (unregRemix) unregRemix();
     };
   }, []);
 
@@ -742,6 +761,17 @@ export default function App() {
             <span>YouTube/TikTok</span>
           </button>
 
+          {/* Instant Remix (F7) */}
+          <button
+            onClick={() => setIsRemixModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-md bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white shadow-orange-500/25 active:scale-95 border border-orange-400/40"
+            title="Instant Remix (Touche F7) — Capture la voix de ton pote et transforme-la en rap !"
+          >
+            <Flame className="w-4 h-4 text-yellow-200 animate-pulse fill-current" />
+            <span className="hidden md:inline">Instant</span>
+            <span>Remix (F7)</span>
+          </button>
+
           {/* Add Local Sounds */}
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -1083,6 +1113,15 @@ export default function App() {
         isOpen={updateModalOpen}
         onClose={() => setUpdateModalOpen(false)}
         updateInfo={updateInfo}
+      />
+
+      <InstantRemixModal
+        isOpen={isRemixModalOpen}
+        onClose={() => setIsRemixModalOpen(false)}
+        onAddSound={(newSound) => {
+          setSounds((prev) => [newSound, ...prev]);
+          showToast(`Remix ajouté à ta bibliothèque : ${newSound.title}`, 'success');
+        }}
       />
     </div>
   );

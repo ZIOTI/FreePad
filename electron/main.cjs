@@ -622,7 +622,10 @@ ipcMain.handle('search-voicemod', async (event, { query = '', page = 1, size = 2
 // ==========================================
 // 5. INSTANT REPLAY / CLIPPER DISCORD (5S)
 // ==========================================
+// INSTANT REPLAY & INSTANT REMIX HOTKEYS
+// ==========================================
 let currentReplayHotkey = 'F8';
+let currentRemixHotkey = 'F7';
 
 function registerInstantReplayHotkey(key = 'F8') {
   try {
@@ -644,9 +647,34 @@ function registerInstantReplayHotkey(key = 'F8') {
   }
 }
 
+function registerInstantRemixHotkey(key = 'F7') {
+  try {
+    if (currentRemixHotkey) {
+      try { globalShortcut.unregister(currentRemixHotkey); } catch (e) {}
+    }
+    const registered = globalShortcut.register(key, () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('trigger-instant-remix');
+      }
+    });
+    if (registered) {
+      currentRemixHotkey = key;
+    }
+    return registered;
+  } catch (err) {
+    console.warn('Could not register instant remix hotkey:', err.message);
+    return false;
+  }
+}
+
 ipcMain.handle('set-replay-hotkey', (event, { hotkey }) => {
   const success = registerInstantReplayHotkey(hotkey);
   return { success, hotkey: currentReplayHotkey };
+});
+
+ipcMain.handle('set-remix-hotkey', (event, { hotkey }) => {
+  const success = registerInstantRemixHotkey(hotkey);
+  return { success, hotkey: currentRemixHotkey };
 });
 
 // NATIVE WINDOWS WASAPI LOOPBACK (DISCORD & SYSTEM AUDIO)
@@ -1081,8 +1109,9 @@ app.whenReady().then(() => {
     session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => callback(true));
   }
 
-  // Register default instant replay hotkey (F8)
+  // Register default hotkeys: Instant Replay (F8) and Instant Remix (F7)
   registerInstantReplayHotkey('F8');
+  registerInstantRemixHotkey('F7');
 
   createWindow();
 

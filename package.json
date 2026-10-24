@@ -1,6 +1,6 @@
 {
   "name": "freepad",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "FreePad - Modern, Free & Open-Source Soundboard with Audio Injection and Global Hotkeys",
   "main": "electron/main.cjs",
   "type": "module",

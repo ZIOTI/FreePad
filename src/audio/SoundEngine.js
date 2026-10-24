@@ -453,6 +453,89 @@ class SoundEngine {
     }
   }
 
+  async playAudioBuffer(buffer, id = 'instant-remix', volumeMultiplier = 1.0, isLooping = false) {
+    await this.init();
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    if (this.broadcastCtx && this.broadcastCtx.state === 'suspended') await this.broadcastCtx.resume();
+
+    this.currentSources.forEach(s => {
+      try { s.stop(); } catch (e) {}
+    });
+    this.currentSources = [];
+    cancelAnimationFrame(this.rafId);
+
+    try {
+      this.duration = buffer.duration;
+      this.currentSoundId = id;
+      this.currentSources = [];
+
+      const vol = volumeMultiplier !== undefined ? volumeMultiplier : 1.0;
+
+      // 1. Play into Local Headphones
+      const localSource = this.ctx.createBufferSource();
+      localSource.buffer = buffer;
+      localSource.loop = isLooping;
+
+      const localGain = this.ctx.createGain();
+      localGain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      localSource.connect(localGain);
+      localGain.connect(this.headphonesGain);
+
+      localSource.onended = () => {
+        if (this.currentSources.includes(localSource)) {
+          this.isPlaying = false;
+          this.isPaused = false;
+          this.currentSoundId = null;
+          cancelAnimationFrame(this.rafId);
+          if (this.onEnded) this.onEnded(id);
+          if (this.onStateChange) this.onStateChange();
+        }
+      };
+
+      localSource.start(0);
+      this.currentSources.push(localSource);
+
+      // 2. Play into Micro APO or Virtual Broadcast
+      if (this.isApoMode) {
+        if (window.electronAPI && typeof window.electronAPI.playApoPcm === 'function') {
+          this.get48kMonoPcm(buffer, vol, this.loudnessBoost, 0).then((pcmArray) => {
+            if (pcmArray && this.isPlaying && this.currentSoundId === id) {
+              window.electronAPI.playApoPcm({ pcmArray });
+            }
+          }).catch((err) => {
+            console.warn("Direct APO remix injection error:", err);
+          });
+        }
+      } else {
+        if (this.broadcastCtx && this.broadcastGain) {
+          const broadcastSource = this.broadcastCtx.createBufferSource();
+          broadcastSource.buffer = buffer;
+          broadcastSource.loop = isLooping;
+
+          const bGain = this.broadcastCtx.createGain();
+          bGain.gain.setValueAtTime(vol, this.broadcastCtx.currentTime);
+          broadcastSource.connect(bGain);
+          bGain.connect(this.broadcastGain);
+
+          broadcastSource.start(0);
+          this.currentSources.push(broadcastSource);
+        }
+      }
+
+      this.startTime = this.ctx.currentTime;
+      this.pauseOffset = 0;
+      this.isPlaying = true;
+      this.isPaused = false;
+
+      this.startProgressTracker();
+      if (this.onStateChange) this.onStateChange();
+      return true;
+    } catch (err) {
+      console.error("playAudioBuffer error:", err);
+      return false;
+    }
+  }
+
   pause() {
     if (!this.isPlaying || this.isPaused) return;
 
