@@ -458,6 +458,18 @@ ipcMain.handle('send-voice-stream-chunk', async (event, { pcmArray }) => {
   }
 });
 
+// High-speed one-way event for real-time live voice changer stream (zero Promise overhead)
+ipcMain.on('send-voice-stream-chunk-fast', (event, pcmArray) => {
+  if (!voiceStreamSocket || voiceStreamSocket.destroyed) return;
+  try {
+    const buffer = Buffer.isBuffer(pcmArray) ? pcmArray : Buffer.from(pcmArray.buffer || pcmArray);
+    const lenBuf = Buffer.allocUnsafe(4);
+    lenBuf.writeInt32LE(buffer.length, 0);
+    voiceStreamSocket.write(lenBuf);
+    voiceStreamSocket.write(buffer);
+  } catch (e) {}
+});
+
 ipcMain.handle('stop-voice-stream', async () => {
   try {
     if (voiceStreamSocket) {

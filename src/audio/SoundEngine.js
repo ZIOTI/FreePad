@@ -369,6 +369,7 @@ class SoundEngine {
         this.broadcastAudioElement.srcObject = null;
       } catch (e) {}
     }
+    voiceChangerEngine.stopApoVoiceStream();
     voiceChangerEngine.cleanupCurrentGraph();
   }
 

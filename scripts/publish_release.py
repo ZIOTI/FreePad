@@ -38,22 +38,25 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Pont Audio Discord Instantané & Guide Règle d'Or"
-BODY = f"""# 🎉 FreePad {TAG} — Pont Audio Discord Instantané & Guide Règle d'Or
+RELEASE_NAME = f"FreePad {TAG} — Injection Directe Micro Physique (APO) & Zéro Câble"
+BODY = f"""# 🎉 FreePad {TAG} — Injection Directe dans le Micro Physique (APO) & Zéro Câble Requis
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.2.5 ?
+### 🚀 Quoi de neuf dans la v1.2.6 ?
 
-#### 1. 🎙️ Pont Audio Discord 100% Automatique & Direct
-* ⚡ **Double Pont WASAPI / WebAudio & Audio Sink :** Connexion directe et instantanée du flux vocal modifié vers le périphérique virtuel (Steam Streaming Microphone, Voicemod ou VB-Cable) avec zéro délai.
-* 🔄 **Pré-sélection automatique du câble virtuel :** Dès l'ouverture du Voice Changer ou au lancement de FreePad, ton câble virtuel est automatiquement sélectionné pour que le pont soit opérationnel sans manipulation complexe.
+#### 1. ⚡ Injection Directe dans le Micro Physique (APO Bridge)
+* 🎙️ **Directement dans ton vrai micro USB :** Plus besoin de changer de périphérique dans Discord ! Le Voice Changer envoie désormais ta voix modifiée directement dans le flux matériel Windows de ton micro physique (WOODBRASS UM1, Logitech PRO X, etc.) via le pilote système APO à haute performance.
+* 🛑 **Mute automatique de la voix brute :** Quand un effet (Autotune Travis Scott, Robot Daft Punk, Démon, etc.) est actif, le pilote coupe ta voix normale pour ne faire passer que la voix transformée, et rétablit instantanément ta voix naturelle dès que tu relâches ou désactives le preset.
+* ⚡ **Streaming Ultra Faible Latence :** Échange mémoire natif IPC vers le sous-système audio Windows sans aucun délai perceptible.
 
-#### 2. 🛡️ Guide Règle d'Or Discord Intégré
-* 💡 **Explication limpide dans l'application :** Pourquoi ta voix était normale dans Discord si tu avais laissé ton micro physique (WOODBRASS UM1) en entrée Discord, et comment régler Discord en 1 clic.
-* 🎯 **Nom exact du périphérique à choisir :** FreePad t'indique précisément le nom exact à sélectionner dans `Discord > Voix & Vidéo > Périphérique d'entrée` pour parler avec ta voix transformée instantanément.
+#### 2. 🎛️ Double Architecture : Micro Physique Direct + Câble Virtuel
+* 🔌 **Tu as le choix :**
+  1. **Mode Direct Micro (Par défaut avec pilote APO) :** Zéro câble requis, Discord reste sur ton micro habituel !
+  2. **Mode Câble Virtuel :** Toujours disponible pour ceux qui préfèrent router via Steam Streaming Microphone ou Voicemod.
+* 🛠️ **Installateur en 1 clic intégré :** Un bouton d'activation du pilote direct intégré directement dans la fenêtre du Voice Changer.
 
 ---
 

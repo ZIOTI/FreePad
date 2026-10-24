@@ -452,6 +452,12 @@ class VoiceChangerEngine {
     this.workletModuleLoaded = false;
     this.currentFxNodes = [];
 
+    // Direct Physical Microphone Injection (APO Bridge)
+    this.isApoStreaming = false;
+    this.isApoAvailable = false;
+    this.apoTapNode = null;
+    this.apoDummyGain = null;
+
     this.onStateChange = null;
   }
 
@@ -485,6 +491,38 @@ class VoiceChangerEngine {
     this.analyserNode.fftSize = 64;
     this.analyserNode.smoothingTimeConstant = 0.5;
     this.outputNode.connect(this.analyserNode);
+
+    // Direct Physical Microphone Injection (APO Tap Node - Zero Latency)
+    if (!this.apoTapNode && this.ctx) {
+      try {
+        this.apoTapNode = this.ctx.createScriptProcessor(1024, 1, 1);
+        this.apoTapNode.onaudioprocess = (e) => {
+          if (!this.isApoStreaming || this.activePreset === 'none') return;
+          const channelData = e.inputBuffer.getChannelData(0);
+          const pcmBytes = new Uint8Array(channelData.buffer, channelData.byteOffset, channelData.byteLength);
+          if (window.electronAPI && typeof window.electronAPI.sendVoiceStreamChunkFast === 'function') {
+            window.electronAPI.sendVoiceStreamChunkFast(pcmBytes);
+          }
+        };
+        this.outputNode.connect(this.apoTapNode);
+        this.apoDummyGain = this.ctx.createGain();
+        this.apoDummyGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        this.apoTapNode.connect(this.apoDummyGain);
+        this.apoDummyGain.connect(this.ctx.destination);
+      } catch (e) {
+        console.warn("APO tap node setup notice:", e);
+      }
+    }
+
+    // Check APO Driver Availability
+    if (window.electronAPI && typeof window.electronAPI.checkApoStatus === 'function') {
+      try {
+        const apo = await window.electronAPI.checkApoStatus();
+        this.isApoAvailable = !!(apo && (apo.isActive || apo.isAvailable));
+      } catch (e) {
+        this.isApoAvailable = false;
+      }
+    }
 
     // Automatically forward to broadcast bus (Discord / virtual cable)
     soundEngine.ensureBroadcastBridge();
@@ -536,6 +574,32 @@ class VoiceChangerEngine {
     this.rebuildGraph();
   }
 
+  async startApoVoiceStream() {
+    if (this.isApoStreaming) return;
+    if (window.electronAPI && typeof window.electronAPI.startVoiceStream === 'function') {
+      try {
+        const res = await window.electronAPI.startVoiceStream({ blockVoice: true });
+        if (res && res.success) {
+          this.isApoStreaming = true;
+        }
+      } catch (e) {
+        console.warn("Could not start APO voice stream:", e);
+      }
+    }
+  }
+
+  async stopApoVoiceStream() {
+    if (!this.isApoStreaming) return;
+    this.isApoStreaming = false;
+    if (window.electronAPI && typeof window.electronAPI.stopVoiceStream === 'function') {
+      try {
+        await window.electronAPI.stopVoiceStream();
+      } catch (e) {
+        console.warn("Could not stop APO voice stream:", e);
+      }
+    }
+  }
+
   setPreset(presetId) {
     if (!VOICE_PRESETS[presetId]) return;
     const oldPreset = this.activePreset;
@@ -544,11 +608,22 @@ class VoiceChangerEngine {
     if (presetId !== 'none') {
       this.lastActivePreset = presetId;
       this.isMorphedActive = true;
+      this.startApoVoiceStream();
     } else {
       this.isMorphedActive = false;
+      if (oldPreset === 'walkie') {
+        this.playRogerBeep();
+        setTimeout(() => {
+          if (this.activePreset === 'none') {
+            this.stopApoVoiceStream();
+          }
+        }, 220);
+      } else {
+        this.stopApoVoiceStream();
+      }
     }
 
-    if (oldPreset === 'walkie' && presetId !== 'walkie') {
+    if (oldPreset === 'walkie' && presetId !== 'walkie' && presetId !== 'none') {
       this.playRogerBeep();
     }
 

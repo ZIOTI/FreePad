@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Real-Time Voice Changer APO Live Injection
   startVoiceStream: (opts) => ipcRenderer.invoke('start-voice-stream', opts),
   sendVoiceStreamChunk: (opts) => ipcRenderer.invoke('send-voice-stream-chunk', opts),
+  sendVoiceStreamChunkFast: (pcmArray) => ipcRenderer.send('send-voice-stream-chunk-fast', pcmArray),
   stopVoiceStream: () => ipcRenderer.invoke('stop-voice-stream'),
 
   // Backward compatibility aliases

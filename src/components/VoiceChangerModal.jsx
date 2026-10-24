@@ -53,6 +53,11 @@ export default function VoiceChangerModal({
   const [testProgress, setTestProgress] = useState(0);
   const [testMessage, setTestMessage] = useState('');
 
+  // Native APO Direct Microphone Injection State
+  const [apoStatus, setApoStatus] = useState({ isAvailable: false, isActive: false, checked: false });
+  const [isInstallingApo, setIsInstallingApo] = useState(false);
+  const [apoFeedbackMsg, setApoFeedbackMsg] = useState('');
+
   const animFrameRef = useRef(null);
 
   // Sync state and enumerate devices on modal open
@@ -112,6 +117,13 @@ export default function VoiceChangerModal({
           }
         }
       });
+    }
+
+    // Check native APO direct microphone injection status
+    if (window.electronAPI && typeof window.electronAPI.checkApoStatus === 'function') {
+      window.electronAPI.checkApoStatus().then(st => {
+        if (st) setApoStatus({ isAvailable: !!st.isAvailable, isActive: !!st.isActive, checked: true });
+      }).catch(() => {});
     }
 
     // Register callback for external hotkey triggers
@@ -194,6 +206,46 @@ export default function VoiceChangerModal({
       console.warn("Echo test error:", e);
       setIsTestingVoice(false);
       setTestMessage("Erreur test vocal");
+    }
+  };
+
+  const handleInstallApo = async () => {
+    if (isInstallingApo) return;
+    setIsInstallingApo(true);
+    setApoFeedbackMsg("Accepte la fenêtre de confirmation Windows (UAC)...");
+    if (window.electronAPI && typeof window.electronAPI.installApoDriver === 'function') {
+      try {
+        const res = await window.electronAPI.installApoDriver();
+        if (res && res.success) {
+          let attempts = 0;
+          const poll = setInterval(async () => {
+            attempts++;
+            const check = await window.electronAPI.checkApoStatus();
+            if (check && (check.isAvailable || check.isActive)) {
+              clearInterval(poll);
+              setApoStatus({ isAvailable: true, isActive: !!check.isActive, checked: true });
+              setIsInstallingApo(false);
+              setApoFeedbackMsg("🎉 Pilote Micro Direct activé avec succès !");
+              setTimeout(() => setApoFeedbackMsg(''), 4000);
+              return;
+            }
+            if (attempts >= 15) {
+              clearInterval(poll);
+              setIsInstallingApo(false);
+              setApoFeedbackMsg("Installation terminée. Redémarre FreePad si besoin.");
+              setTimeout(() => setApoFeedbackMsg(''), 4000);
+            }
+          }, 2000);
+        } else {
+          setIsInstallingApo(false);
+          setApoFeedbackMsg("Erreur au lancement de l'installateur.");
+        }
+      } catch (e) {
+        setIsInstallingApo(false);
+        setApoFeedbackMsg("Erreur: " + e.message);
+      }
+    } else {
+      setIsInstallingApo(false);
     }
   };
 
@@ -409,6 +461,63 @@ export default function VoiceChangerModal({
             </div>
           )}
 
+          {/* DIRECT PHYSICAL MICROPHONE INJECTION STATUS & 1-CLICK ENABLER */}
+          {apoStatus.isAvailable ? (
+            <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-teal-950/70 border border-emerald-500/50 shadow-lg text-emerald-200 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                    <Zap className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm text-white flex items-center space-x-2">
+                      <span>⚡ Injection Directe Micro Physique Activée</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40">
+                        ZÉRO CÂBLE REQUIS
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-300/80 mt-0.5">
+                      Ta voix modifiée sort <strong>directement dans ton micro Windows ({activeMicName})</strong>. Tu n'as <strong>rien à modifier dans Discord</strong> (laisse Discord sur ton micro habituel) !
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300 font-medium shrink-0 self-start sm:self-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>Prêt &amp; Opérationnel</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl bg-gradient-to-r from-indigo-950/70 via-slate-900 to-purple-950/70 border border-indigo-500/40 shadow-lg text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shrink-0">
+                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-white text-sm">
+                      Tu veux que ça sorte directement dans ton micro sans rien changer dans Discord ?
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      Active le pilote Micro Direct (APO) FreePad pour injecter ta voix modifiée directement dans ton vrai micro USB physique (comme Soundpad).
+                    </p>
+                    {apoFeedbackMsg && (
+                      <p className="text-[11px] text-amber-300 mt-1 font-medium">{apoFeedbackMsg}</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={handleInstallApo}
+                  disabled={isInstallingApo}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center space-x-1.5 border border-indigo-400/40 hover:scale-[1.02]"
+                >
+                  {isInstallingApo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 text-amber-300" />}
+                  <span>{isInstallingApo ? 'Installation en cours...' : 'Activer Micro Direct en 1 Clic ⚡'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* TWO DROPDOWNS: 1. MICROPHONE INPUT | 2. BROADCAST OUTPUT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             {/* 1. Microphone Input */}
@@ -473,38 +582,52 @@ export default function VoiceChangerModal({
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
               </span>
               <span className="font-bold text-sm text-white">
-                Règle d'or pour Discord &amp; Jeux (Pourquoi ma voix était normale ?)
+                {apoStatus.isAvailable ? "Comment Discord reçoit ta voix modifiée :" : "Règle d'or pour Discord & Jeux :"}
               </span>
             </div>
 
-            <div className="space-y-2 text-[11px] leading-relaxed">
-              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200">
-                <strong>⚠️ Pourquoi ta voix reste normale si Discord n'est pas réglé :</strong><br />
-                Discord écoute directement ton micro physique (<strong>{activeMicName}</strong>) via son port USB matériel, en ignorant FreePad. Pour que tes amis entendent ta voix modifiée, Discord doit écouter le câble FreePad !
+            {apoStatus.isAvailable ? (
+              <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-[11px] leading-relaxed space-y-1">
+                <p>
+                  🎉 <strong>Le Pilote Micro Direct est ACTIF !</strong>
+                </p>
+                <p className="text-slate-200">
+                  Dans Discord, laisse simplement ton micro habituel (<strong>{activeMicName}</strong>) en Périphérique d'entrée. Quand tu actives un preset ou appuies sur ta touche <strong>{currentHotkey}</strong>, FreePad injecte automatiquement ta voix modifiée directement dans ton micro !
+                </p>
+                <p className="text-[10px] text-emerald-400/90 italic">
+                  💡 Alternative câble : Tu peux aussi utiliser "{discordInputName}" dans Discord si tu souhaites séparer les flux.
+                </p>
               </div>
+            ) : (
+              <div className="space-y-2 text-[11px] leading-relaxed">
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200">
+                  <strong>⚠️ Sans le pilote Micro Direct :</strong><br />
+                  Discord écoute directement ton micro physique (<strong>{activeMicName}</strong>) via son port USB matériel. Pour que tes amis entendent ta voix modifiée sans le pilote, Discord doit écouter le câble virtuel ci-dessous !
+                </div>
 
-              <div className="p-2.5 rounded-lg bg-slate-900/80 border border-indigo-500/30 space-y-1.5">
-                <div className="font-semibold text-emerald-300 flex items-center space-x-1.5">
-                  <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold">✓</span>
-                  <span>Configuration dans Discord (à faire 1 seule fois) :</span>
-                </div>
-                <p className="text-slate-300">
-                  Ouvre <strong>Discord &gt; Paramètres (⚙️) &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :
-                </p>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-md bg-slate-950 border border-emerald-500/40">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-slate-400">Périphérique d'entrée Discord :</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
-                      👉 {discordInputName}
-                    </span>
+                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-indigo-500/30 space-y-1.5">
+                  <div className="font-semibold text-emerald-300 flex items-center space-x-1.5">
+                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold">✓</span>
+                    <span>Configuration dans Discord (Option Câble Virtuel) :</span>
                   </div>
-                  <span className="text-[10px] text-emerald-400 font-medium">✅ Zéro délai • Voix modifiée active</span>
+                  <p className="text-slate-300">
+                    Ouvre <strong>Discord &gt; Paramètres (⚙️) &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :
+                  </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-md bg-slate-950 border border-emerald-500/40">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-slate-400">Périphérique d'entrée Discord :</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
+                        👉 {discordInputName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 font-medium">✅ Zéro délai • Voix modifiée active</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 italic">
+                    ❌ Ne choisis PAS ton micro physique ({activeMicName}) dans Discord si tu utilises le mode câble.
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-400 italic">
-                  ❌ Ne choisis PAS ton micro physique ({activeMicName}) dans Discord, sinon Discord capte ta voix normale sans effet.
-                </p>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -602,7 +725,7 @@ export default function VoiceChangerModal({
 
         {/* Footer info branding */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-          <span>FreePad Voice Changer Pro v1.2.5 • Zéro Latence • DSP Constant-Power • Autotune &amp; Vocoder</span>
+          <span>FreePad Voice Changer Pro v1.2.6 • Injection Micro Directe (APO) • Zéro Câble Requis • Autotune &amp; Vocoder</span>
           <span className="text-indigo-400 font-medium">Fait par zioti</span>
         </div>
       </div>
