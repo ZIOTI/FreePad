@@ -306,15 +306,13 @@ export default function App() {
             }
           }
 
-          // Find VB-Cable Input, Voicemod or Steam Streaming Microphone
+          // Find VB-Cable Input, Voicemod or Steam Streaming device
           const savedBroadcast = localStorage.getItem('freepad_broadcast_output');
           if (!savedBroadcast || savedBroadcast === 'default') {
-            const virtualOut = outputs.find(d =>
-              d.label.toLowerCase().includes('cable input') ||
-              d.label.toLowerCase().includes('vb-audio') ||
-              d.label.toLowerCase().includes('voicemod') ||
-              d.label.toLowerCase().includes('steam streaming microphone')
-            );
+            const virtualOut = outputs.find(d => {
+              const l = (d.label || '').toLowerCase();
+              return l.includes('cable') || l.includes('vb-audio') || l.includes('voicemod') || l.includes('steam') || l.includes('virtual');
+            });
             if (virtualOut) {
               setBroadcastOutput(virtualOut.deviceId);
               soundEngine.setOutputDevice('broadcast', virtualOut.deviceId);

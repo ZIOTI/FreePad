@@ -38,24 +38,22 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Sélecteur de Microphone Dédié & Configuration Discord 2 Clics"
-BODY = f"""# 🎉 FreePad {TAG} — Sélecteur de Microphone Dédié & Configuration Discord en 2 Clics
+RELEASE_NAME = f"FreePad {TAG} — Pont Audio Discord Instantané & Guide Règle d'Or"
+BODY = f"""# 🎉 FreePad {TAG} — Pont Audio Discord Instantané & Guide Règle d'Or
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.2.4 ?
+### 🚀 Quoi de neuf dans la v1.2.5 ?
 
-#### 1. 🎙️ Sélecteur de Microphone d'Entrée Dédié
-* 🎯 **Choix direct de ton vrai micro :** Ajout d'un menu déroulant dédié **« 1️⃣ Mon Vrai Microphone »** dans le Voice Changer. Tu peux maintenant choisir explicitement ton microphone physique (ex: WOODBRASS UM1, Logitech PRO X, micro casque USB...).
-* 📊 **VU-Mètre Dynamique par Micro :** Le vu-mètre affiche désormais le nom exact de ton micro actif et réagit en direct avec ta voix.
+#### 1. 🎙️ Pont Audio Discord 100% Automatique & Direct
+* ⚡ **Double Pont WASAPI / WebAudio & Audio Sink :** Connexion directe et instantanée du flux vocal modifié vers le périphérique virtuel (Steam Streaming Microphone, Voicemod ou VB-Cable) avec zéro délai.
+* 🔄 **Pré-sélection automatique du câble virtuel :** Dès l'ouverture du Voice Changer ou au lancement de FreePad, ton câble virtuel est automatiquement sélectionné pour que le pont soit opérationnel sans manipulation complexe.
 
-#### 2. 🔊 Séparation Claire Entrée Microphone vs Sortie Discord
-* 🧭 **Interface ultra claire en 2 étapes :**
-  1. **Menu 1 (Entrée) :** Ton vrai micro où tu parles.
-  2. **Menu 2 (Sortie) :** Le câble virtuel (Steam Streaming Microphone, Voicemod ou VB-Cable) qui envoie ta voix modifiée vers Discord ou tes jeux.
-* 🛡️ **Zéro confusion :** Les câbles virtuels sont clairement étiquetés pour éviter toute erreur de boucle.
+#### 2. 🛡️ Guide Règle d'Or Discord Intégré
+* 💡 **Explication limpide dans l'application :** Pourquoi ta voix était normale dans Discord si tu avais laissé ton micro physique (WOODBRASS UM1) en entrée Discord, et comment régler Discord en 1 clic.
+* 🎯 **Nom exact du périphérique à choisir :** FreePad t'indique précisément le nom exact à sélectionner dans `Discord > Voix & Vidéo > Périphérique d'entrée` pour parler avec ta voix transformée instantanément.
 
 ---
 

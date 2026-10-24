@@ -92,13 +92,24 @@ export default function VoiceChangerModal({
         if (soundEngine.broadcastDeviceId && soundEngine.broadcastDeviceId !== 'default') {
           setSelectedBroadcastId(soundEngine.broadcastDeviceId);
         } else {
-          soundEngine.autoDetectVirtualDevice().then(vDev => {
-            if (vDev) {
-              setSelectedBroadcastId(vDev.deviceId);
-              soundEngine.setOutputDevice('broadcast', vDev.deviceId);
-              if (setBroadcastOutput) setBroadcastOutput(vDev.deviceId);
-            }
+          // Auto-select first recommended virtual device if present
+          const recOut = outs.find(d => {
+            const l = (d.label || '').toLowerCase();
+            return l.includes('steam') || l.includes('voicemod') || l.includes('cable') || l.includes('vb-audio') || l.includes('virtual');
           });
+          if (recOut) {
+            setSelectedBroadcastId(recOut.deviceId);
+            soundEngine.setOutputDevice('broadcast', recOut.deviceId);
+            if (setBroadcastOutput) setBroadcastOutput(recOut.deviceId);
+          } else {
+            soundEngine.autoDetectVirtualDevice().then(vDev => {
+              if (vDev) {
+                setSelectedBroadcastId(vDev.deviceId);
+                soundEngine.setOutputDevice('broadcast', vDev.deviceId);
+                if (setBroadcastOutput) setBroadcastOutput(vDev.deviceId);
+              }
+            });
+          }
         }
       });
     }
@@ -456,19 +467,44 @@ export default function VoiceChangerModal({
           </div>
 
           {/* Discord Instruction Guide */}
-          <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 text-[11px] text-slate-300 space-y-1">
-            <div className="font-bold text-emerald-300 flex items-center space-x-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Configuration Discord en 1 seconde :</span>
+          <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-950/60 to-purple-950/40 border border-indigo-700/60 text-xs text-slate-200 shadow-lg">
+            <div className="flex items-center space-x-2 pb-2 border-b border-indigo-800/60 mb-2.5">
+              <span className="p-1 rounded-md bg-indigo-500/20 text-indigo-400">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              </span>
+              <span className="font-bold text-sm text-white">
+                Règle d'or pour Discord &amp; Jeux (Pourquoi ma voix était normale ?)
+              </span>
             </div>
-            <p>
-              Dans <strong>Discord &gt; Paramètres &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :<br />
-              {selectedBroadcastId !== 'default' ? (
-                <>Sélectionne 👉 <strong className="text-emerald-300 underline">{discordInputName}</strong> pour parler en direct avec les voix modifiées !</>
-              ) : (
-                <>Sélectionne un câble virtuel dans le menu n°2 ci-dessus (ex: <strong>Steam Streaming Microphone</strong> ou <strong>Voicemod</strong>) pour diffuser sans délai.</>
-              )}
-            </p>
+
+            <div className="space-y-2 text-[11px] leading-relaxed">
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200">
+                <strong>⚠️ Pourquoi ta voix reste normale si Discord n'est pas réglé :</strong><br />
+                Discord écoute directement ton micro physique (<strong>{activeMicName}</strong>) via son port USB matériel, en ignorant FreePad. Pour que tes amis entendent ta voix modifiée, Discord doit écouter le câble FreePad !
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-slate-900/80 border border-indigo-500/30 space-y-1.5">
+                <div className="font-semibold text-emerald-300 flex items-center space-x-1.5">
+                  <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold">✓</span>
+                  <span>Configuration dans Discord (à faire 1 seule fois) :</span>
+                </div>
+                <p className="text-slate-300">
+                  Ouvre <strong>Discord &gt; Paramètres (⚙️) &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-md bg-slate-950 border border-emerald-500/40">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-slate-400">Périphérique d'entrée Discord :</span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
+                      👉 {discordInputName}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-400 font-medium">✅ Zéro délai • Voix modifiée active</span>
+                </div>
+                <p className="text-[10px] text-slate-400 italic">
+                  ❌ Ne choisis PAS ton micro physique ({activeMicName}) dans Discord, sinon Discord capte ta voix normale sans effet.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -566,7 +602,7 @@ export default function VoiceChangerModal({
 
         {/* Footer info branding */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-          <span>FreePad Voice Changer Pro v1.2.4 • Zéro Latence • DSP Constant-Power • Autotune &amp; Vocoder</span>
+          <span>FreePad Voice Changer Pro v1.2.5 • Zéro Latence • DSP Constant-Power • Autotune &amp; Vocoder</span>
           <span className="text-indigo-400 font-medium">Fait par zioti</span>
         </div>
       </div>

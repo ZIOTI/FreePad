@@ -180,6 +180,10 @@ class SoundEngine {
     const isDedicatedBroadcast = this.broadcastDeviceId && this.broadcastDeviceId !== 'default' && this.broadcastDeviceId !== this.localDeviceId;
     if (!isDedicatedBroadcast) return;
 
+    if (this.broadcastCtx.state === 'suspended') {
+      this.broadcastCtx.resume().catch(() => {});
+    }
+
     if (!this.micPassthroughGain) {
       this.micPassthroughGain = this.broadcastCtx.createGain();
       if (this.broadcastMasterGain) {
@@ -199,6 +203,27 @@ class SoundEngine {
       } catch (e) {
         console.warn("ensureBroadcastBridge bridge notice:", e);
       }
+    }
+
+    // Direct HTMLAudioElement sink bridge for rock-solid Windows audio output
+    try {
+      if (!this.broadcastAudioElement && typeof Audio !== 'undefined') {
+        this.broadcastAudioElement = new Audio();
+        this.broadcastAudioElement.autoplay = true;
+        this.broadcastAudioElement.volume = 1.0;
+        this.broadcastAudioElement.muted = false;
+      }
+      if (this.broadcastAudioElement && this.micBroadcastBridgeDest && this.micBroadcastBridgeDest.stream) {
+        if (this.broadcastAudioElement.srcObject !== this.micBroadcastBridgeDest.stream) {
+          this.broadcastAudioElement.srcObject = this.micBroadcastBridgeDest.stream;
+        }
+        if (typeof this.broadcastAudioElement.setSinkId === 'function') {
+          this.broadcastAudioElement.setSinkId(this.broadcastDeviceId).catch(() => {});
+        }
+        this.broadcastAudioElement.play().catch(() => {});
+      }
+    } catch (e) {
+      console.warn("broadcastAudioElement notice:", e);
     }
   }
 
@@ -337,6 +362,12 @@ class SoundEngine {
     if (this.micBroadcastBridgeDest) {
       try { this.micBroadcastBridgeDest.disconnect(); } catch (e) {}
       this.micBroadcastBridgeDest = null;
+    }
+    if (this.broadcastAudioElement) {
+      try {
+        this.broadcastAudioElement.pause();
+        this.broadcastAudioElement.srcObject = null;
+      } catch (e) {}
     }
     voiceChangerEngine.cleanupCurrentGraph();
   }
