@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Production build outputs
+dist/
+release/
+*.exe
+*.blockmap
+
+# Temporary files & logs
+*.log
+startup.log
+.DS_Store
+Thumbs.db
+
+# Driver temporary builds
+driver/bin/
+driver/obj/

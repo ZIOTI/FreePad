@@ -1,0 +1,110 @@
+{
+  "name": "freepad",
+  "version": "1.0.0",
+  "description": "FreePad - Modern, Free & Open-Source Soundboard with Audio Injection and Global Hotkeys",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "vite",
+    "app": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dist": "vite build && electron-builder --win --x64",
+    "dist:portable": "vite build && electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "com.zioti.freepad",
+    "productName": "FreePad",
+    "directories": {
+      "output": "release"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "zioti",
+        "repo": "FreePad"
+      }
+    ],
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "driver/**/*",
+      "installer/**/*",
+      "Installer_Pilote_Micro.bat",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "driver/**/*",
+      "installer/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "driver",
+        "to": "driver",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "installer",
+        "to": "installer",
+        "filter": [
+          "**/*"
+        ]
+      },
+      "Installer_Pilote_Micro.bat"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "FreePad",
+      "uninstallDisplayName": "FreePad (Fait par zioti)",
+      "runAfterFinish": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "keywords": [
+    "soundboard",
+    "soundpad",
+    "audio",
+    "voice",
+    "streamdeck",
+    "webaudio"
+  ],
+  "author": "zioti",
+  "license": "MIT",
+  "dependencies": {
+    "electron-updater": "^6.8.11",
+    "lucide-react": "^1.16.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.18.0",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.2.0",
+    "wait-on": "^8.0.2"
+  }
+}
