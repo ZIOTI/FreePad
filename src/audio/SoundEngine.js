@@ -46,6 +46,8 @@ class SoundEngine {
     this.isApoMode = true; // Direct Hardware APO Injection
     this.isSoundpadMode = true; // Legacy alias
     this.playSessionId = 0; // Concurrency guard to eliminate double playback
+    this.lastPlayTime = 0;
+    this.lastPlaySoundId = null;
 
     // Callbacks
     this.onStateChange = null;
@@ -178,8 +180,6 @@ class SoundEngine {
 
   ensureBroadcastBridge() {
     if (!this.ctx || !this.broadcastCtx) return;
-    const isDedicatedBroadcast = this.broadcastDeviceId && this.broadcastDeviceId !== 'default' && this.broadcastDeviceId !== this.localDeviceId;
-    if (!isDedicatedBroadcast) return;
 
     if (this.broadcastCtx.state === 'suspended') {
       this.broadcastCtx.resume().catch(() => {});
@@ -508,7 +508,24 @@ class SoundEngine {
     return audioBuffer;
   }
 
+  duckMonitoringForSoundboard(duck) {
+    if (voiceChangerEngine && voiceChangerEngine.monitoringGain && this.ctx) {
+      const target = (duck || !voiceChangerEngine.isMonitoringEnabled) ? 0.0 : voiceChangerEngine.monitoringVolume;
+      try {
+        voiceChangerEngine.monitoringGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.015);
+      } catch (e) {}
+    }
+  }
+
   async play(sound, startOffset = 0) {
+    if (!sound) return false;
+    const now = Date.now();
+    if (this.lastPlayTime && (now - this.lastPlayTime < 100) && this.lastPlaySoundId === sound.id) {
+      return false; // Debounce rapid multi-clicks
+    }
+    this.lastPlayTime = now;
+    this.lastPlaySoundId = sound.id;
+
     const sessionId = ++this.playSessionId;
     await this.init();
     if (this.ctx.state === 'suspended') await this.ctx.resume();
@@ -536,6 +553,11 @@ class SoundEngine {
       const offset = Math.max(0, Math.min(startOffset, buffer.duration));
       const vol = sound.volumeMultiplier !== undefined ? sound.volumeMultiplier : 1.0;
 
+      // Duck mic monitoring temporarily if APO injection is used to prevent acoustic double echo in headphones
+      if (this.isApoMode) {
+        this.duckMonitoringForSoundboard(true);
+      }
+
       // 1. Play into Local Headphones
       const localSource = this.ctx.createBufferSource();
       localSource.buffer = buffer;
@@ -551,6 +573,7 @@ class SoundEngine {
           this.isPlaying = false;
           this.isPaused = false;
           this.currentSoundId = null;
+          this.duckMonitoringForSoundboard(false);
           cancelAnimationFrame(this.rafId);
           if (this.onEnded) this.onEnded(sound.id);
           if (this.onStateChange) this.onStateChange();
@@ -706,6 +729,7 @@ class SoundEngine {
       window.electronAPI.stopApoPcm().catch(() => {});
     }
 
+    this.duckMonitoringForSoundboard(false);
     this.isPlaying = false;
     this.isPaused = true;
     cancelAnimationFrame(this.rafId);
@@ -729,6 +753,7 @@ class SoundEngine {
       window.electronAPI.stopApoPcm().catch(() => {});
     }
 
+    this.duckMonitoringForSoundboard(false);
     this.isPlaying = false;
     this.isPaused = false;
     const oldId = this.currentSoundId;

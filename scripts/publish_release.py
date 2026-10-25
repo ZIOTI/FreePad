@@ -38,25 +38,32 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Correctifs Stabilité Micro & Double Playback"
-BODY = f"""# 🎉 FreePad {TAG} — Correctifs Stabilité Micro & Double Playback
+RELEASE_NAME = f"FreePad {TAG} — Modulateur de Voix Studio & Intégration Discord Zéro-Larsen"
+BODY = f"""# 🎉 FreePad {TAG} — Modulateur de Voix Studio & Intégration Discord Zéro-Larsen
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.2.7 ?
+### 🚀 Quoi de neuf dans la v1.2.8 ?
 
-#### 1. 🛡️ Suppression Intégrale du Larsen et Bruit Aigu (Sécurité Casque)
-* 🎧 **Monitoring désactivé par défaut :** Finie la boucle de Larsen désagréable au choix du micro ! Le retour casque est désormais coupé par défaut pour protéger tes oreilles.
-* 🔇 **Isolation du pont APO :** Le pont d'injection matérielle est isolé dans un buffer nul et ne fuit plus jamais dans les écouteurs.
+#### 1. 🎙️ Modulateur de Voix Studio Zéro-Latence (DSP Dual-Tap Overlap-Add)
+* ⚡ **Pitch Shifting OLA sans clics ni coupures :** Remplacement intégral de l'ancien algorithme granulaire par un double buffer OLA à fenêtrage de Hann continu ($w_0 + w_1 \\equiv 1.0$) pour des transpositions douces, naturelles et sans aucun grésillement métallique.
+* 🎵 **Auto-Tune Travis Scott / PNL :** Détection de fondamentale ultra-rapide par autocorrélation normalisée (ACF 75Hz-550Hz) avec verrouillage instantané sur les 12 demi-tons chromatiques et slapback delay spatial.
+* 🤖 **Vocoder Daft Punk :** Double oscillateur dent de scie (A2 110Hz + E3 164.8Hz + Sub 55Hz) avec suivi d'enveloppe vocale et préservation des consonnes sifflantes pour une intelligibilité parfaite.
+* 😈 **Démon des Abysses, Hélium, Mégaphone & Talkie-Walkie :** Présets calibrés avec filtres biquad studio, saturation analogique progressive et compresseur dynamique.
 
-#### 2. 🎙️ Détection Fiable du Microphone & VU-Mètre Actif
-* 🟢 **Capture micro continue :** Correction du blocage WASAPI en mode normal ; le micro physique est détecté instantanément et la voix reste entendue sans coupure.
-* 📊 **VU-mètre temps réel :** Combine la détection matérielle et les effets pour afficher avec précision le niveau de la voix.
+#### 2. 🛡️ Suppression Définitive du Bruit Assourdissant & Larsen
+* 🔇 **Élimination de la boucle de feedback physique :** Le flux du microphone physique n'est plus réinjecté dans lui-même. Finie la saturation numérique assourdissante à 0 dBFS !
+* 👂 **Protection auditive absolue :** Le retour casque (monitoring) reste désactivé par défaut. Tu peux activer l'écoute ou lancer un **Echo Test de 3s** en un clic pour tester ce que tes amis entendront.
 
-#### 3. 🎯 Élimination des Sons Joués en Double (Soundboard)
-* ⚡ **Jetons de session asynchrones (playSessionId) :** Lors de clics rapides ou déclenchements de raccourcis, les requêtes concurrentes sont invalidées proprement pour garantir qu'aucun son ne se superpose en écho ou en double.
+#### 3. 💬 Intégration Discord & Jeux 100% Fonctionnelle
+* 🟢 **Diffusion vers Steam Streaming Microphone / Câble Virtuel :** Exactement comme Voicemod, ta voix modifiée est retransmise avec une latence quasi-nulle vers le périphérique virtuel déjà présent sur ton PC.
+* 📋 **Bouton Copier 1-Clic :** La fenêtre du Voice Changer t'indique précisément le nom du périphérique à choisir dans **Discord > Paramètres > Voix et vidéo > Périphérique d'entrée** (`Steam Streaming Microphone`), avec un bouton pour copier son nom instantanément.
+
+#### 4. 🎯 Fin des Sons Joués en Double (Soundboard)
+* 🛑 **Ducking automatique du retour micro :** Lorsqu'un son de la soundboard est joué, le retour micro est temporairement atténué pour éviter qu'il ne soit recapturé en double ou en écho.
+* ⚡ **Debounce anti-rebond :** Empêche le déclenchement intempestif de sons multiples lors de clics rapides ou appuis prolongés sur les touches du clavier.
 
 ---
 

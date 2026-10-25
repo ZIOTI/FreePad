@@ -17,7 +17,8 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
-  Loader2
+  Loader2,
+  Copy
 } from 'lucide-react';
 import voiceChangerEngine, { VOICE_PRESETS } from '../audio/VoiceChangerEngine';
 import soundEngine from '../audio/SoundEngine';
@@ -52,6 +53,7 @@ export default function VoiceChangerModal({
   const [isTestingVoice, setIsTestingVoice] = useState(false);
   const [testProgress, setTestProgress] = useState(0);
   const [testMessage, setTestMessage] = useState('');
+  const [copiedDiscord, setCopiedDiscord] = useState(false);
 
   // Native APO Direct Microphone Injection State
   const [apoStatus, setApoStatus] = useState({ isAvailable: false, isActive: false, checked: false });
@@ -274,9 +276,9 @@ export default function VoiceChangerModal({
   const getDiscordInputSuggestion = (label = '') => {
     const l = (label || '').toLowerCase();
     if (l.includes('voicemod')) return 'Microphone (Voicemod Virtual Audio Device (WDM))';
-    if (l.includes('steam')) return 'Steam Streaming Microphone';
+    if (l.includes('steam')) return 'Microphone (Steam Streaming Microphone)';
     if (l.includes('cable') || l.includes('vb-audio')) return 'CABLE Output (VB-Audio Virtual Cable)';
-    return label || 'ton périphérique virtuel';
+    return label || 'Steam Streaming Microphone';
   };
 
   const currentMicDevice = inputDevices.find(d => d.deviceId === selectedMicId);
@@ -455,62 +457,56 @@ export default function VoiceChangerModal({
             </div>
           )}
 
-          {/* DIRECT PHYSICAL MICROPHONE INJECTION STATUS & 1-CLICK ENABLER */}
-          {apoStatus.isAvailable ? (
-            <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-teal-950/70 border border-emerald-500/50 shadow-lg text-emerald-200 text-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex items-center space-x-2.5">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
-                    <Zap className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm text-white flex items-center space-x-2">
-                      <span>⚡ Injection Directe Micro Physique Activée</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40">
-                        ZÉRO CÂBLE REQUIS
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-emerald-300/80 mt-0.5">
-                      Ta voix modifiée sort <strong>directement dans ton micro Windows ({activeMicName})</strong>. Tu n'as <strong>rien à modifier dans Discord</strong> (laisse Discord sur ton micro habituel) !
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300 font-medium shrink-0 self-start sm:self-center">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Prêt &amp; Opérationnel</span>
-                </div>
+          {/* DISCORD SETUP BANNER & 1-CLICK COPIER */}
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/90 via-slate-900 to-purple-950/80 border border-indigo-500/50 shadow-xl text-xs space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-indigo-800/40">
+              <div className="flex items-center space-x-2">
+                <span className="p-1 rounded-lg bg-indigo-500/20 text-indigo-400">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                </span>
+                <span className="font-bold text-sm text-white">
+                  Comment diffuser ta voix modifiée dans Discord &amp; Jeux :
+                </span>
               </div>
+              <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300 font-medium">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Flux actif vers Discord (Zéro Larsen)</span>
+              </span>
             </div>
-          ) : (
-            <div className="p-3 rounded-xl bg-gradient-to-r from-indigo-950/70 via-slate-900 to-purple-950/70 border border-indigo-500/40 shadow-lg text-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex items-center space-x-2.5">
-                  <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shrink-0">
-                    <Sparkles className="w-4 h-4 text-indigo-400" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-white text-sm">
-                      Tu veux que ça sorte directement dans ton micro sans rien changer dans Discord ?
-                    </div>
-                    <p className="text-[11px] text-slate-300 mt-0.5">
-                      Active le pilote Micro Direct (APO) FreePad pour injecter ta voix modifiée directement dans ton vrai micro USB physique (comme Soundpad).
-                    </p>
-                    {apoFeedbackMsg && (
-                      <p className="text-[11px] text-amber-300 mt-1 font-medium">{apoFeedbackMsg}</p>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={handleInstallApo}
-                  disabled={isInstallingApo}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center space-x-1.5 border border-indigo-400/40 hover:scale-[1.02]"
-                >
-                  {isInstallingApo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 text-amber-300" />}
-                  <span>{isInstallingApo ? 'Installation en cours...' : 'Activer Micro Direct en 1 Clic ⚡'}</span>
-                </button>
+
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              Pour que tes amis t'entendent avec la voix modifiée (Travis Scott, Robot, Démon...) sans aucun écho ni grésillement, sélectionne ce micro dans Discord :
+            </p>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 rounded-lg bg-slate-950/90 border border-indigo-500/40 shadow-inner">
+              <div className="flex items-center space-x-2 truncate">
+                <span className="text-xs text-slate-400 shrink-0 font-medium">Dans Discord &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée :</span>
+                <span className="px-2.5 py-1 rounded bg-indigo-500/20 text-cyan-300 font-mono font-bold text-xs border border-indigo-500/40 truncate">
+                  👉 {discordInputName}
+                </span>
               </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(discordInputName);
+                  setCopiedDiscord(true);
+                  setTimeout(() => setCopiedDiscord(false), 2500);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md shrink-0 flex items-center justify-center space-x-1.5 ${
+                  copiedDiscord
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                }`}
+              >
+                {copiedDiscord ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedDiscord ? 'Copié !' : 'Copier le nom'}</span>
+              </button>
             </div>
-          )}
+
+            <div className="flex items-center space-x-2 text-[10px] text-slate-400">
+              <span className="text-emerald-400 font-bold">✓ Architecture Pro (Voicemod) :</span>
+              <span>Laisse ton micro physique ({activeMicName}) ci-dessous dans "1️⃣ Mon Vrai Microphone". FreePad le transforme et l'injecte en direct dans Discord !</span>
+            </div>
+          </div>
 
           {/* TWO DROPDOWNS: 1. MICROPHONE INPUT | 2. BROADCAST OUTPUT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -569,59 +565,13 @@ export default function VoiceChangerModal({
             </div>
           </div>
 
-          {/* Discord Instruction Guide */}
-          <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-950/60 to-purple-950/40 border border-indigo-700/60 text-xs text-slate-200 shadow-lg">
-            <div className="flex items-center space-x-2 pb-2 border-b border-indigo-800/60 mb-2.5">
-              <span className="p-1 rounded-md bg-indigo-500/20 text-indigo-400">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              </span>
-              <span className="font-bold text-sm text-white">
-                {apoStatus.isAvailable ? "Comment Discord reçoit ta voix modifiée :" : "Règle d'or pour Discord & Jeux :"}
-              </span>
-            </div>
-
-            {apoStatus.isAvailable ? (
-              <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-[11px] leading-relaxed space-y-1">
-                <p>
-                  🎉 <strong>Le Pilote Micro Direct est ACTIF !</strong>
-                </p>
-                <p className="text-slate-200">
-                  Dans Discord, laisse simplement ton micro habituel (<strong>{activeMicName}</strong>) en Périphérique d'entrée. Quand tu actives un preset ou appuies sur ta touche <strong>{currentHotkey}</strong>, FreePad injecte automatiquement ta voix modifiée directement dans ton micro !
-                </p>
-                <p className="text-[10px] text-emerald-400/90 italic">
-                  💡 Alternative câble : Tu peux aussi utiliser "{discordInputName}" dans Discord si tu souhaites séparer les flux.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2 text-[11px] leading-relaxed">
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200">
-                  <strong>⚠️ Sans le pilote Micro Direct :</strong><br />
-                  Discord écoute directement ton micro physique (<strong>{activeMicName}</strong>) via son port USB matériel. Pour que tes amis entendent ta voix modifiée sans le pilote, Discord doit écouter le câble virtuel ci-dessous !
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-indigo-500/30 space-y-1.5">
-                  <div className="font-semibold text-emerald-300 flex items-center space-x-1.5">
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-bold">✓</span>
-                    <span>Configuration dans Discord (Option Câble Virtuel) :</span>
-                  </div>
-                  <p className="text-slate-300">
-                    Ouvre <strong>Discord &gt; Paramètres (⚙️) &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée</strong> :
-                  </p>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-md bg-slate-950 border border-emerald-500/40">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-slate-400">Périphérique d'entrée Discord :</span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
-                        👉 {discordInputName}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-emerald-400 font-medium">✅ Zéro délai • Voix modifiée active</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 italic">
-                    ❌ Ne choisis PAS ton micro physique ({activeMicName}) dans Discord si tu utilises le mode câble.
-                  </p>
-                </div>
-              </div>
-            )}
+          {/* Quick Discord & In-Game Reminder */}
+          <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+            <span className="flex items-center space-x-1.5">
+              <span className="text-cyan-400">💡</span>
+              <span><strong>Astuce :</strong> Tu peux utiliser le bouton "🎙️ Tester ce que Discord entend" en haut pour t'entendre 3s dans ton casque avant d'entrer en vocal !</span>
+            </span>
+            <span className="text-indigo-400 font-semibold text-[10px]">Fait par zioti</span>
           </div>
         </div>
 
@@ -719,7 +669,7 @@ export default function VoiceChangerModal({
 
         {/* Footer info branding */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-          <span>FreePad Voice Changer Pro v1.2.7 • Injection Micro Directe (APO) • Zéro Câble Requis • Autotune &amp; Vocoder</span>
+          <span>FreePad Voice Changer Pro v1.2.8 Studio • Overlap-Add DSP • Discord Zero-Feedback • Fait par zioti</span>
           <span className="text-indigo-400 font-medium">Fait par zioti</span>
         </div>
       </div>
