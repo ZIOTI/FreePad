@@ -38,32 +38,31 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Modulateur de Voix Studio & Intégration Discord Zéro-Larsen"
-BODY = f"""# 🎉 FreePad {TAG} — Modulateur de Voix Studio & Intégration Discord Zéro-Larsen
+RELEASE_NAME = f"FreePad {TAG} — Câble Audio Virtuel Dédié & 100% Indépendant"
+BODY = f"""# 🎉 FreePad {TAG} — Câble Audio Virtuel Dédié & 100% Indépendant
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.2.8 ?
+### 🚀 Quoi de neuf dans la v1.2.9 ?
 
-#### 1. 🎙️ Modulateur de Voix Studio Zéro-Latence (DSP Dual-Tap Overlap-Add)
-* ⚡ **Pitch Shifting OLA sans clics ni coupures :** Remplacement intégral de l'ancien algorithme granulaire par un double buffer OLA à fenêtrage de Hann continu ($w_0 + w_1 \\equiv 1.0$) pour des transpositions douces, naturelles et sans aucun grésillement métallique.
-* 🎵 **Auto-Tune Travis Scott / PNL :** Détection de fondamentale ultra-rapide par autocorrélation normalisée (ACF 75Hz-550Hz) avec verrouillage instantané sur les 12 demi-tons chromatiques et slapback delay spatial.
-* 🤖 **Vocoder Daft Punk :** Double oscillateur dent de scie (A2 110Hz + E3 164.8Hz + Sub 55Hz) avec suivi d'enveloppe vocale et préservation des consonnes sifflantes pour une intelligibilité parfaite.
-* 😈 **Démon des Abysses, Hélium, Mégaphone & Talkie-Walkie :** Présets calibrés avec filtres biquad studio, saturation analogique progressive et compresseur dynamique.
+#### 1. ⚡ Câble Audio Virtuel Dédié Intégré en 1 Clic (Zéro Dépendance Steam)
+* 🔌 **Installateur Virtuel Embarqué :** FreePad inclut désormais directement le pilote virtuel officiel haute-fidélité (`VBCABLE_Setup_x64.exe`) certifié WHQL Microsoft. Plus aucun besoin d'installer Steam Streaming Microphone, Voicemod ou d'autres utilitaires externes.
+* 🚀 **Activation en 1 Clic :** Un simple clic dans la fenêtre du modulateur de voix installe et configure le périphérique en quelques secondes avec redémarrage transparent du service audio Windows.
 
-#### 2. 🛡️ Suppression Définitive du Bruit Assourdissant & Larsen
-* 🔇 **Élimination de la boucle de feedback physique :** Le flux du microphone physique n'est plus réinjecté dans lui-même. Finie la saturation numérique assourdissante à 0 dBFS !
-* 👂 **Protection auditive absolue :** Le retour casque (monitoring) reste désactivé par défaut. Tu peux activer l'écoute ou lancer un **Echo Test de 3s** en un clic pour tester ce que tes amis entendront.
+#### 2. 🎙️ Modulateur de Voix Studio Zéro-Latence & Isolation Zéro-Larsen
+* ⚡ **Pitch Shifting OLA sans clics ni coupures :** Double buffer OLA à fenêtrage de Hann continu pour des transpositions douces, riches et naturelles.
+* 🎵 **Auto-Tune Travis Scott / PNL :** Détection de fondamentale ultra-rapide par autocorrélation (75Hz-550Hz) verrouillée sur la gamme chromatique.
+* 🤖 **Vocoder Daft Punk, Démon des Abysses, Hélium, Mégaphone & Talkie-Walkie :** Traitements DSP en temps réel sans aucun artefact ni saturation.
+* 🛡️ **Isolation totale des flux :** Ton vrai microphone physique capture ta voix, le DSP FreePad la transforme, et l'injecte dans le câble virtuel dédié sans aucune boucle de rétroaction assourdissante.
 
-#### 3. 💬 Intégration Discord & Jeux 100% Fonctionnelle
-* 🟢 **Diffusion vers Steam Streaming Microphone / Câble Virtuel :** Exactement comme Voicemod, ta voix modifiée est retransmise avec une latence quasi-nulle vers le périphérique virtuel déjà présent sur ton PC.
-* 📋 **Bouton Copier 1-Clic :** La fenêtre du Voice Changer t'indique précisément le nom du périphérique à choisir dans **Discord > Paramètres > Voix et vidéo > Périphérique d'entrée** (`Steam Streaming Microphone`), avec un bouton pour copier son nom instantanément.
+#### 3. 💬 Intégration Discord & Jeux Instantanée
+* 📋 **Bouton Copier 1-Clic :** Copie instantanément le nom du périphérique d'entrée pour Discord (`CABLE Output (VB-Audio Virtual Cable)`).
+* 🎧 **Echo Test 3s :** Écoute ce que tes amis recevront dans leur casque avant de rejoindre un salon vocal.
 
 #### 4. 🎯 Fin des Sons Joués en Double (Soundboard)
-* 🛑 **Ducking automatique du retour micro :** Lorsqu'un son de la soundboard est joué, le retour micro est temporairement atténué pour éviter qu'il ne soit recapturé en double ou en écho.
-* ⚡ **Debounce anti-rebond :** Empêche le déclenchement intempestif de sons multiples lors de clics rapides ou appuis prolongés sur les touches du clavier.
+* 🛑 **Ducking automatique & Debounce :** Empêche tout déclenchement intempestif ou réinjection parasite de la soundboard dans le flux micro.
 
 ---
 

@@ -6,6 +6,8 @@ package-lock.json
 dist/
 release/
 *.exe
+!driver/vbcable/*.exe
+!driver/FreePadApoBridge.exe
 *.blockmap
 
 # Temporary files & logs

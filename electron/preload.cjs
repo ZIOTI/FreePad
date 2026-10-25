@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   playApoPcm: (opts) => ipcRenderer.invoke('play-apo-pcm', opts),
   stopApoPcm: () => ipcRenderer.invoke('stop-apo-pcm'),
   installApoDriver: () => ipcRenderer.invoke('install-apo-driver'),
+  installVirtualCable: () => ipcRenderer.invoke('install-virtual-cable'),
 
   // Real-Time Voice Changer APO Live Injection
   startVoiceStream: (opts) => ipcRenderer.invoke('start-voice-stream', opts),

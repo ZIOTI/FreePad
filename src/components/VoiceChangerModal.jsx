@@ -60,6 +60,10 @@ export default function VoiceChangerModal({
   const [isInstallingApo, setIsInstallingApo] = useState(false);
   const [apoFeedbackMsg, setApoFeedbackMsg] = useState('');
 
+  // Bundled 1-Click Virtual Cable State (100% Free, Zero Steam Dependency)
+  const [isInstallingCable, setIsInstallingCable] = useState(false);
+  const [cableFeedbackMsg, setCableFeedbackMsg] = useState('');
+
   const animFrameRef = useRef(null);
 
   // Sync state and enumerate devices on modal open
@@ -95,14 +99,14 @@ export default function VoiceChangerModal({
           localStorage.setItem('freepad_selected_mic', physMic.deviceId);
         }
 
-        // 2. Broadcast Output: Auto-detect virtual device (Voicemod, Steam, VB-Cable)
+        // 2. Broadcast Output: Auto-detect virtual device (VB-Cable, FreePad, Voicemod)
         if (soundEngine.broadcastDeviceId && soundEngine.broadcastDeviceId !== 'default') {
           setSelectedBroadcastId(soundEngine.broadcastDeviceId);
         } else {
           // Auto-select first recommended virtual device if present
           const recOut = outs.find(d => {
             const l = (d.label || '').toLowerCase();
-            return l.includes('steam') || l.includes('voicemod') || l.includes('cable') || l.includes('vb-audio') || l.includes('virtual');
+            return (l.includes('cable') || l.includes('vb-audio') || l.includes('freepad') || l.includes('voicemod') || l.includes('virtual')) && !l.includes('steam');
           });
           if (recOut) {
             setSelectedBroadcastId(recOut.deviceId);
@@ -245,6 +249,61 @@ export default function VoiceChangerModal({
     }
   };
 
+  const handleInstallVirtualCable = async () => {
+    if (isInstallingCable) return;
+    setIsInstallingCable(true);
+    setCableFeedbackMsg("Démarrage de l'installation du câble audio virtuel (autorise l'UAC Windows si demandé)...");
+
+    if (window.electronAPI && typeof window.electronAPI.installVirtualCable === 'function') {
+      try {
+        const res = await window.electronAPI.installVirtualCable();
+        if (res && res.success) {
+          setCableFeedbackMsg("Installation en cours ! Windows initialise le périphérique virtuel...");
+          let attempts = 0;
+          const poll = setInterval(async () => {
+            attempts++;
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+              const devs = await navigator.mediaDevices.enumerateDevices();
+              const outs = devs.filter(d => d.kind === 'audiooutput');
+              const ins = devs.filter(d => d.kind === 'audioinput');
+              setOutputDevices(outs);
+              setInputDevices(ins);
+              const foundCable = outs.find(d => {
+                const l = (d.label || '').toLowerCase();
+                return (l.includes('cable') || l.includes('vb-audio')) && !l.includes('steam');
+              });
+              if (foundCable) {
+                clearInterval(poll);
+                setSelectedBroadcastId(foundCable.deviceId);
+                soundEngine.setOutputDevice('broadcast', foundCable.deviceId);
+                if (setBroadcastOutput) setBroadcastOutput(foundCable.deviceId);
+                setIsInstallingCable(false);
+                setCableFeedbackMsg("🎉 Câble Virtuel Haute-Fidélité installé et configuré avec succès !");
+                setTimeout(() => setCableFeedbackMsg(''), 5000);
+                return;
+              }
+            }
+            if (attempts >= 12) {
+              clearInterval(poll);
+              setIsInstallingCable(false);
+              setCableFeedbackMsg("Installation terminée. Sélectionne 'CABLE Input' dans la liste des sorties ci-dessous.");
+              setTimeout(() => setCableFeedbackMsg(''), 6000);
+            }
+          }, 2000);
+        } else {
+          setIsInstallingCable(false);
+          setCableFeedbackMsg("Erreur au lancement : " + (res?.error || "Inconnue"));
+        }
+      } catch (err) {
+        setIsInstallingCable(false);
+        setCableFeedbackMsg("Erreur : " + err.message);
+      }
+    } else {
+      setIsInstallingCable(false);
+      setCableFeedbackMsg("Disponible uniquement dans l'application FreePad.");
+    }
+  };
+
   const handleKeyDown = async (e) => {
     if (!isSettingHotkey) return;
     e.preventDefault();
@@ -276,9 +335,12 @@ export default function VoiceChangerModal({
   const getDiscordInputSuggestion = (label = '') => {
     const l = (label || '').toLowerCase();
     if (l.includes('voicemod')) return 'Microphone (Voicemod Virtual Audio Device (WDM))';
-    if (l.includes('steam')) return 'Microphone (Steam Streaming Microphone)';
     if (l.includes('cable') || l.includes('vb-audio')) return 'CABLE Output (VB-Audio Virtual Cable)';
-    return label || 'Steam Streaming Microphone';
+    if (l.includes('freepad')) return 'Microphone (FreePad Virtual Audio)';
+    if (label && !l.includes('défaut') && !l.includes('default') && !l.includes('haut-parleurs') && !l.includes('speakers')) {
+      return label;
+    }
+    return 'CABLE Output (VB-Audio Virtual Cable)';
   };
 
   const currentMicDevice = inputDevices.find(d => d.deviceId === selectedMicId);
@@ -287,6 +349,7 @@ export default function VoiceChangerModal({
   const currentBroadcastDevice = outputDevices.find(d => d.deviceId === selectedBroadcastId);
   const broadcastLabel = currentBroadcastDevice?.label || 'Périphérique Virtuel';
   const discordInputName = getDiscordInputSuggestion(broadcastLabel);
+  const hasVirtualCable = outputDevices.some(d => /cable|vb-audio|freepad|voicemod|virtual/i.test(d.label || '') && !/steam/i.test(d.label || ''));
 
   return (
     <div
@@ -503,10 +566,61 @@ export default function VoiceChangerModal({
             </div>
 
             <div className="flex items-center space-x-2 text-[10px] text-slate-400">
-              <span className="text-emerald-400 font-bold">✓ Architecture Pro (Voicemod) :</span>
+              <span className="text-emerald-400 font-bold">✓ Architecture Pro (Indépendante) :</span>
               <span>Laisse ton micro physique ({activeMicName}) ci-dessous dans "1️⃣ Mon Vrai Microphone". FreePad le transforme et l'injecte en direct dans Discord !</span>
             </div>
           </div>
+
+          {/* 1-CLICK DEDICATED VIRTUAL CABLE INSTALLER (100% STANDALONE, NO STEAM) */}
+          <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+                <Radio className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-xs text-white">Câble Audio Virtuel Haute-Fidélité</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold border border-emerald-500/30">
+                    {hasVirtualCable ? '✓ Prêt & Actif' : '100% Gratuit • Sans Steam'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {hasVirtualCable
+                    ? 'Périphérique virtuel actif. Il transmet ta voix modifiée vers Discord sans aucun écho ni retour larsen.'
+                    : "Installe le câble audio virtuel officiel en 1 clic pour diffuser ta voix dans Discord, FiveM, CS2 ou Fortnite sans Steam."}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleInstallVirtualCable}
+              disabled={isInstallingCable}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md shrink-0 flex items-center space-x-1.5 ${
+                isInstallingCable
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                  : hasVirtualCable
+                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white animate-pulse'
+              }`}
+            >
+              {isInstallingCable ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Installation...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{hasVirtualCable ? 'Réinstaller le Câble' : '⚡ Installer en 1 Clic'}</span>
+                </>
+              )}
+            </button>
+          </div>
+          {cableFeedbackMsg && (
+            <div className="p-2 rounded-lg bg-indigo-950/80 border border-indigo-500/50 text-xs text-indigo-200 animate-in fade-in flex items-center space-x-2">
+              <span>💡</span>
+              <span>{cableFeedbackMsg}</span>
+            </div>
+          )}
 
           {/* TWO DROPDOWNS: 1. MICROPHONE INPUT | 2. BROADCAST OUTPUT */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -551,7 +665,7 @@ export default function VoiceChangerModal({
                 <option value="default">-- Sélectionne un câble virtuel --</option>
                 {outputDevices.map((d) => {
                   const label = d.label || '';
-                  const isVirt = /cable|voicemod|steam|virtual/i.test(label);
+                  const isVirt = /cable|vb-audio|freepad|voicemod|virtual/i.test(label) && !/steam/i.test(label);
                   return (
                     <option key={d.deviceId} value={d.deviceId}>
                       {isVirt ? `⭐ ${label} (Recommandé pour Discord)` : (label || `Périphérique (${d.deviceId.slice(0, 8)}...)`)}

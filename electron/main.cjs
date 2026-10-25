@@ -240,6 +240,26 @@ function setupBinaries() {
       }
     }
 
+    // Copy vbcable directory if present
+    const vbcableDest = path.join(binDir, 'vbcable');
+    const vbcableSources = [
+      path.join(process.resourcesPath, 'driver', 'vbcable'),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'driver', 'vbcable'),
+      path.join(__dirname, '..', 'driver', 'vbcable'),
+      path.join(path.dirname(app.getPath('exe')), 'driver', 'vbcable'),
+      path.join(process.cwd(), 'driver', 'vbcable')
+    ];
+    for (const srcDir of vbcableSources) {
+      if (fs.existsSync(srcDir) && !fs.existsSync(path.join(vbcableDest, 'VBCABLE_Setup_x64.exe'))) {
+        try {
+          fs.cpSync(srcDir, vbcableDest, { recursive: true });
+          break;
+        } catch (e) {
+          console.warn('Could not copy vbcable directory:', e.message);
+        }
+      }
+    }
+
     return path.join(binDir, 'FreePadApoBridge.exe');
   } catch (err) {
     console.error("setupBinaries error:", err.message);
@@ -541,6 +561,63 @@ objShell.ShellExecute "cmd.exe", "/c """"${batPath}""""", "", "runas", 1
     return { success: true };
   } catch (err) {
     console.error('install-apo-driver error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// Run 1-click Virtual Audio Cable driver installer with administrator UAC elevation
+ipcMain.handle('install-virtual-cable', async () => {
+  try {
+    setupBinaries();
+    const binDir = path.join(app.getPath('userData'), 'bin');
+
+    const possibleSetups = [
+      path.join(binDir, 'vbcable', 'VBCABLE_Setup_x64.exe'),
+      path.join(process.resourcesPath, 'driver', 'vbcable', 'VBCABLE_Setup_x64.exe'),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'driver', 'vbcable', 'VBCABLE_Setup_x64.exe'),
+      path.join(__dirname, '..', 'driver', 'vbcable', 'VBCABLE_Setup_x64.exe'),
+      path.join(process.cwd(), 'driver', 'vbcable', 'VBCABLE_Setup_x64.exe')
+    ];
+    let setupPath = null;
+    for (const p of possibleSetups) {
+      if (fs.existsSync(p)) {
+        setupPath = p;
+        break;
+      }
+    }
+
+    if (!setupPath) {
+      return { success: false, error: "Installateur du câble audio virtuel introuvable" };
+    }
+
+    const setupDir = path.dirname(setupPath);
+    const batPath = path.join(binDir, 'run_install_cable.bat');
+    const batContent = `@echo off
+chcp 65001 >nul
+title FreePad — Installation du Câble Audio Virtuel
+cd /d "${setupDir}"
+"${setupPath}" -i -h
+net stop audiosrv >nul 2>&1
+net start audiosrv >nul 2>&1
+`;
+    fs.writeFileSync(batPath, batContent, 'utf8');
+
+    const vbsPath = path.join(binDir, 'elevate_cable.vbs');
+    const vbsContent = `Set objShell = CreateObject("Shell.Application")
+objShell.ShellExecute "cmd.exe", "/c """"${batPath}""""", "", "runas", 1
+`;
+    fs.writeFileSync(vbsPath, vbsContent, 'utf8');
+
+    const wscript = spawn('wscript.exe', [vbsPath], {
+      detached: true,
+      windowsHide: false,
+      stdio: 'ignore'
+    });
+    wscript.unref();
+
+    return { success: true };
+  } catch (err) {
+    console.error('install-virtual-cable error:', err.message);
     return { success: false, error: err.message };
   }
 });

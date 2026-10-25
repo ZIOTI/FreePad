@@ -305,12 +305,12 @@ export default function App() {
             }
           }
 
-          // Find VB-Cable Input, Voicemod or Steam Streaming device
+          // Find dedicated Virtual Audio Cable (VB-Cable, FreePad, Voicemod)
           const savedBroadcast = localStorage.getItem('freepad_broadcast_output');
           if (!savedBroadcast || savedBroadcast === 'default') {
             const virtualOut = outputs.find(d => {
               const l = (d.label || '').toLowerCase();
-              return l.includes('cable') || l.includes('vb-audio') || l.includes('voicemod') || l.includes('steam') || l.includes('virtual');
+              return (l.includes('cable') || l.includes('vb-audio') || l.includes('freepad') || l.includes('voicemod') || l.includes('virtual')) && !l.includes('steam');
             });
             if (virtualOut) {
               setBroadcastOutput(virtualOut.deviceId);

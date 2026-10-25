@@ -119,7 +119,7 @@ class SoundEngine {
     // Connect Local Chain
     this.updateGraphRouting();
 
-    // Create Second AudioContext for Broadcast / Virtual Microphone (Steam Streaming Mic / Voicemod)
+    // Create Second AudioContext for Broadcast / Virtual Microphone (VB-Cable / FreePad / Voicemod)
     try {
       this.broadcastCtx = new AudioContextClass({ latencyHint: 'interactive' });
 
@@ -147,7 +147,7 @@ class SoundEngine {
       if (this.broadcastDeviceId && this.broadcastDeviceId !== 'default') {
         this.setOutputDevice('broadcast', this.broadcastDeviceId).catch(() => {});
       } else {
-        // Auto-detect virtual device (Voicemod, Steam, VB-Cable) for zero-config Discord routing
+        // Auto-detect virtual device (VB-Cable, FreePad, Voicemod) for zero-config Discord routing
         this.autoDetectVirtualDevice().then(dev => {
           if (dev && this.broadcastDeviceId === 'default') {
             this.setOutputDevice('broadcast', dev.deviceId).catch(() => {});
@@ -164,9 +164,12 @@ class SoundEngine {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const outputs = devices.filter(d => d.kind === 'audiooutput');
-      const virtualKeywords = ['cable input', 'vb-audio', 'voicemod', 'steam streaming', 'steam', 'virtual', 'cable', 'ligne (voicemod'];
+      const virtualKeywords = ['cable input', 'vb-audio', 'freepad', 'cable', 'voicemod', 'virtual audio', 'ligne (voicemod'];
       for (const kw of virtualKeywords) {
-        const found = outputs.find(d => d.label && d.label.toLowerCase().includes(kw));
+        const found = outputs.find(d => {
+          const l = (d.label || '').toLowerCase();
+          return l.includes(kw) && !l.includes('steam');
+        });
         if (found) {
           console.log(`[SoundEngine] Auto-detected virtual broadcast device: ${found.label} (${found.deviceId})`);
           return found;
