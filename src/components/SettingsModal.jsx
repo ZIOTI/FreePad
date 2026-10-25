@@ -213,167 +213,88 @@ export default function SettingsModal({
           </button>
         </div>
 
-        {/* MODE SELECTOR: PILOTE DIRECT (RECOMMANDÉ) vs VB-CABLE */}
-        <div className="mb-4 p-1.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center gap-1.5">
-          <button
-            onClick={() => setInjectionMode('direct')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-              injectionMode === 'direct'
-                ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 text-white shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-400/50'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Cpu className="w-4 h-4 text-emerald-300" />
-            <span>Mode Pilote Direct</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/40 text-emerald-200 border border-emerald-400/30 font-black">
-              ⭐ ZÉRO ÉCHO
-            </span>
-          </button>
-          <button
-            onClick={() => setInjectionMode('virtual')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-              injectionMode === 'virtual'
-                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-lg shadow-cyan-500/20 ring-1 ring-cyan-400/50'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <Radio className="w-4 h-4 text-cyan-300" />
-            <span>Mode Câble Virtuel (VB-Cable)</span>
-          </button>
-        </div>
-
-        {/* PRIMARY BANNER DEPENDING ON MODE */}
-        {injectionMode === 'direct' ? (
-          <div className="mb-4 p-4 rounded-xl bg-gradient-to-br from-indigo-950/80 via-slate-900/90 to-emerald-950/70 border border-emerald-500/40 shadow-lg">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <Cpu className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    Injection Directe dans ton Vrai Micro
-                    {apoStatus.isAvailable ? (
-                      <span className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        ACTIF & CONNECTÉ
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        NON INSTALLÉ
-                      </span>
-                    )}
-                  </h4>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    Les sons entrent <strong>directement</strong> dans ton microphone physique sans aucun câble virtuel ni boucle d'écho.
-                  </p>
-                </div>
+        {/* PRIMARY INJECTION BANNER: 100% DIRECT MICROPHONE (ZERO VB-CABLE - FAIT PAR ZIOTI) */}
+        <div className="mb-4 p-4 rounded-xl bg-gradient-to-br from-indigo-950/80 via-slate-900/90 to-emerald-950/70 border border-emerald-500/40 shadow-lg">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <Cpu className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  Injection Directe dans ton Vrai Micro (100% Sans Câble)
+                  {apoStatus.isAvailable ? (
+                    <span className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      ACTIF & CONNECTÉ
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      NON INSTALLÉ
+                    </span>
+                  )}
+                </h4>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Tes sons et ta voix modifiée entrent <strong>directement</strong> dans ton vrai microphone sans aucun câble virtuel (zéro VB-Cable, zéro écho).
+                </p>
               </div>
             </div>
+          </div>
 
-            <div className="mt-3 p-3 rounded-lg bg-slate-950/60 border border-slate-800 text-xs text-slate-300 space-y-2">
-              <p className="flex items-center gap-1.5 font-semibold text-white">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Dans Discord : choisis simplement ton <strong>vrai microphone habituel</strong>.</span>
-              </p>
-              <div className="text-[11px] bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-slate-300 space-y-1">
-                <p className="font-bold text-cyan-300">💡 Réglages Discord recommandés :</p>
-                <p>• <strong>Désactive Krisp</strong> (Voix & Vidéo → Suppression du bruit → Mets sur <u>Aucun</u>) pour que Discord ne coupe pas tes sons.</p>
-                <p>• <strong>Désactive l'Annulation d'écho</strong> dans les paramètres vocaux de Discord.</p>
-                <p>• Préfère l'<strong>application Discord officielle</strong> plutôt que le site web Chrome (qui bloque parfois les bruits de fond).</p>
-              </div>
+          <div className="mt-3 p-3 rounded-lg bg-slate-950/60 border border-slate-800 text-xs text-slate-300 space-y-2">
+            <p className="flex items-center gap-1.5 font-semibold text-white">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Dans Discord : choisis simplement ton <strong>vrai microphone habituel</strong> (Nor-Tec, Casque, USB).</span>
+            </p>
+            <div className="text-[11px] bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-slate-300 space-y-1">
+              <p className="font-bold text-cyan-300">💡 Réglages Discord conseillés :</p>
+              <p>• <strong>Désactive Krisp</strong> (Voix & Vidéo → Suppression du bruit → Mets sur <u>Aucun</u>) pour que Discord ne coupe pas tes sons.</p>
+              <p>• <strong>Désactive l'Annulation d'écho</strong> dans les paramètres vocaux de Discord.</p>
             </div>
+          </div>
 
-            <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+          <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+            <button
+              onClick={handleTestTone}
+              disabled={testToneActive}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 border border-slate-700"
+            >
+              <Play className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{testToneActive ? "Envoi du bip..." : "Tester l'injection micro (Bip sonore)"}</span>
+            </button>
+
+            {!apoStatus.isAvailable ? (
               <button
-                onClick={handleTestTone}
-                disabled={testToneActive}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 border border-slate-700"
+                onClick={handleInstallApo}
+                disabled={isInstalling}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all shadow-md active:scale-95"
               >
-                <Play className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{testToneActive ? "Envoi du bip..." : "Tester le micro (Bip sonore)"}</span>
+                <Zap className="w-3.5 h-3.5" />
+                <span>{isInstalling ? "Installation..." : "⚡ Activer l'injection directe dans mon micro (1 clic)"}</span>
               </button>
-
-              {!apoStatus.isAvailable ? (
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                  <ShieldCheck className="w-4 h-4" /> Pilote opérationnel
+                </span>
                 <button
                   onClick={handleInstallApo}
                   disabled={isInstalling}
-                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold transition-all border border-slate-700 active:scale-95"
+                  title="Réappliquer le filtre sur tes micros actifs"
                 >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>{isInstalling ? "Installation..." : "⚡ Installer le Pilote Micro (1 clic)"}</span>
+                  {isInstalling ? "Réparation..." : "🔄 Réparer / Réinstaller"}
                 </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
-                    <ShieldCheck className="w-4 h-4" /> Pilote opérationnel
-                  </span>
-                  <button
-                    onClick={handleInstallApo}
-                    disabled={isInstalling}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold transition-all border border-slate-700 active:scale-95"
-                    title="Nettoyer les anciens filtres et réappliquer sur tes micros actifs"
-                  >
-                    {isInstalling ? "Réparation..." : "🔄 Réparer / Réinstaller"}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {feedbackMsg && (
-              <p className="mt-2 text-[11px] font-bold text-amber-300 animate-pulse text-center">
-                {feedbackMsg}
-              </p>
+              </div>
             )}
           </div>
-        ) : (
-          <div className="mb-4 p-4 rounded-xl bg-gradient-to-br from-cyan-950/80 via-slate-900/90 to-indigo-950/70 border border-cyan-500/40 shadow-lg">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                  <Radio className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    Mode Câble Virtuel (VB-Audio)
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                      ANTI-ÉCHO ACTIF
-                    </span>
-                  </h4>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    Les sons sont envoyés dans <strong>CABLE Input</strong> pour être captés dans Discord via <strong>CABLE Output</strong>.
-                  </p>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-3 p-3 rounded-lg bg-slate-950/80 border border-cyan-500/30 text-xs text-slate-300 space-y-1.5">
-              <p className="font-bold text-cyan-300 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                Configuration parfaite pour éviter toute répétition de son :
-              </p>
-              <ul className="text-[11px] space-y-1 text-slate-300 pl-1">
-                <li>1️⃣ <strong>Sortie de diffusion :</strong> Mets <code>CABLE Input (VB-Audio Virtual Cable)</code> ci-dessous.</li>
-                <li>2️⃣ <strong>Microphone Actif :</strong> Mets ton <u>vrai micro</u> (casque ou USB) pour qu'on t'entende parler.</li>
-                <li>3️⃣ <strong>Dans Discord :</strong> Périphérique d'entrée = <code>CABLE Output</code>.</li>
-              </ul>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-cyan-500/30">
-              <button
-                onClick={handleTestTone}
-                disabled={testToneActive}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 border border-cyan-500/40"
-              >
-                <Play className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{testToneActive ? "Envoi du bip..." : "Tester l'envoi vers Discord (Bip)"}</span>
-              </button>
-              <span className="text-[11px] text-cyan-300/80 font-mono">
-                Joué dans ton casque + VB-Cable
-              </span>
-            </div>
-          </div>
-        )}
+          {feedbackMsg && (
+            <p className="mt-2 text-[11px] font-bold text-amber-300 animate-pulse text-center">
+              {feedbackMsg}
+            </p>
+          )}
+        </div>
 
         {/* LOUDNESS PUNCH BOOST */}
         <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 mb-4 flex items-center justify-between gap-4">
@@ -571,42 +492,6 @@ export default function SettingsModal({
                 <li>Vérifie Windows : <strong>Paramètres &gt; Confidentialité &gt; Microphone</strong> &rarr; vérifie que <em>"Autoriser les applications de bureau à accéder à votre microphone"</em> est activé.</li>
               </ul>
             </div>
-
-            {/* In Virtual Mode: Volume of user's voice into virtual cable */}
-            {injectionMode === 'virtual' && selectedMicInput !== 'none' && (
-              <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3 text-xs">
-                <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-                  <Volume2 className="w-4 h-4 text-cyan-400" />
-                  Volume de ma voix dans Discord :
-                </span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.05"
-                    value={realMicVol}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      if (setRealMicVol) setRealMicVol(val);
-                      soundEngine.setRealMicVolume(val);
-                    }}
-                    className="w-32 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
-                  />
-                  <span className="font-mono text-cyan-400 font-bold w-10 text-right">
-                    {Math.round(realMicVol * 100)}%
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* In Direct Mode: Explanation note */}
-            {injectionMode === 'direct' && (
-              <div className="mt-2.5 p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Dans Discord, choisis directement ton vrai micro ci-dessus. Tes potes t'entendront naturellement !</span>
-              </div>
-            )}
           </div>
 
           {/* HEADPHONES OUTPUT */}
@@ -616,7 +501,7 @@ export default function SettingsModal({
                 <Headphones className="w-4 h-4 text-emerald-400" />
                 Mon Casque / Écouteurs (Retour Audio Personnel)
               </label>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-bold">
                 POUR TOI
               </span>
             </div>
@@ -638,48 +523,27 @@ export default function SettingsModal({
             </select>
           </div>
 
-          {/* BROADCAST / VIRTUAL CABLE OUTPUT */}
-          <div className="bg-slate-900/50 p-3.5 rounded-xl border border-cyan-500/30 shadow-lg shadow-cyan-950/20">
+          {/* DIFFUSION DISCORD ET JEUX : 100% DIRECT HARDWARE APO (FAIT PAR ZIOTI) */}
+          <div className="bg-slate-900/50 p-3.5 rounded-xl border border-emerald-500/30 shadow-lg shadow-emerald-950/20">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-bold text-white flex items-center gap-2">
-                <Radio className="w-4 h-4 text-cyan-400" />
-                Sortie de Diffusion (Câble Virtuel VB-Cable / Envoi dans l'Appel)
+                <Cpu className="w-4 h-4 text-emerald-400" />
+                <span>Diffusion Discord &amp; Jeux (Mode Direct Micro)</span>
               </label>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 font-bold">
-                VERS DISCORD
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-bold">
+                ⭐ 100% SANS CÂBLE VIRTUEL
               </span>
             </div>
 
-            <select
-              value={broadcastOutput}
-              onChange={(e) => {
-                setBroadcastOutput(e.target.value);
-                soundEngine.setOutputDevice('broadcast', e.target.value);
-              }}
-              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition-colors mb-2"
-            >
-              <option value="default">Périphérique par défaut (Windows)</option>
-              {audioDevices.map((d) => {
-                const label = d.label || '';
-                const isCable = label.toLowerCase().includes('cable input') || label.toLowerCase().includes('vb-audio');
-                return (
-                  <option key={d.deviceId} value={d.deviceId}>
-                    {isCable ? `⭐ ${label} (RECOMMANDÉ POUR VB-CABLE)` : (label || `Périphérique (${d.deviceId.slice(0, 8)}...)`)}
-                  </option>
-                );
-              })}
-            </select>
-
-            {/* Clear Visual Explainer for VB-Cable */}
-            <div className="mt-2 p-3 rounded-xl bg-cyan-950/50 border border-cyan-500/40 text-xs text-slate-300 space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-cyan-300">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Règle d'or pour VB-Audio Virtual Cable :</span>
-              </div>
-              <ul className="text-[11px] text-slate-300 space-y-1 pl-1">
-                <li>1️⃣ <strong>Dans FreePad (menu déroulant ci-dessus) :</strong> Choisis <code>CABLE Input (VB-Audio Virtual Cable)</code>.</li>
-                <li>2️⃣ <strong>Dans Discord (Paramètres &gt; Voix &amp; Vidéo &gt; Périphérique d'entrée) :</strong> Choisis <code>CABLE Output (VB-Audio Virtual Cable)</code>.</li>
-                <li>3️⃣ <strong>Microphone :</strong> Si ton pote n'a pas de vrai micro, choisis <em>"Aucun microphone (Soundboard uniquement)"</em> en haut.</li>
+            <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-xs text-slate-300 space-y-2">
+              <p className="font-bold text-emerald-300 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Comment ça marche pour tes potes sur Discord :</span>
+              </p>
+              <ul className="text-[11px] text-slate-300 space-y-1.5 pl-1">
+                <li>1️⃣ <strong>Dans FreePad :</strong> Ton vrai micro est sélectionné ci-dessus. Le pilote direct y injecte tes sons et ton modificateur de voix.</li>
+                <li>2️⃣ <strong>Dans Discord :</strong> Périphérique d'entrée = <u>ton vrai micro habituel</u> (Nor-Tec, Casque, USB). Aucun câble virtuel à installer ni à configurer !</li>
+                <li>3️⃣ <strong>Zéro écho :</strong> Tu entends tes sons dans ton casque, et tes potes entendent ta voix et tes sons dans l'appel sans aucun retour horrible.</li>
               </ul>
             </div>
           </div>

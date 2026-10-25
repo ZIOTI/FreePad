@@ -147,6 +147,11 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
 
+  // Direct APO Driver Status (Zero VB-Cable - Fait par zioti)
+  const [isApoInstalled, setIsApoInstalled] = useState(true);
+  const [isInstallingApo, setIsInstallingApo] = useState(false);
+  const [apoBannerMsg, setApoBannerMsg] = useState('');
+
   const showToast = (message, type = 'info') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ message, type });
@@ -225,9 +230,61 @@ export default function App() {
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem('freepad_injection_mode', injectionMode);
-    soundEngine.setSoundpadMode(injectionMode === 'direct');
-  }, [injectionMode]);
+    // 100% Direct Driver Mode (Zero VB-Cable - Fait par zioti)
+    localStorage.setItem('freepad_injection_mode', 'direct');
+    soundEngine.setSoundpadMode(true);
+  }, []);
+
+  // Monitor Direct APO Driver Status (Fait par zioti)
+  useEffect(() => {
+    let mounted = true;
+    const checkApo = async () => {
+      if (window.electronAPI && typeof window.electronAPI.checkApoStatus === 'function') {
+        try {
+          const res = await window.electronAPI.checkApoStatus();
+          if (mounted && res) {
+            setIsApoInstalled(!!res.isAvailable);
+          }
+        } catch (e) {
+          console.warn("checkApoStatus error:", e);
+        }
+      }
+    };
+    checkApo();
+    const interval = setInterval(checkApo, 6000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleQuickInstallApo = async () => {
+    setIsInstallingApo(true);
+    setApoBannerMsg("⚡ Installation du pilote micro en cours... Accepte la fenêtre Windows (UAC) !");
+    try {
+      if (window.electronAPI && typeof window.electronAPI.installApoDriver === 'function') {
+        const res = await window.electronAPI.installApoDriver();
+        if (res && res.success) {
+          setApoBannerMsg("🔄 Configuration du pilote sur tes micros...");
+          setTimeout(async () => {
+            const check = await window.electronAPI.checkApoStatus();
+            if (check && check.isAvailable) {
+              setIsApoInstalled(true);
+              setApoBannerMsg("✅ Pilote micro activé ! Tes sons entrent direct dans Discord.");
+              setTimeout(() => setApoBannerMsg(''), 5000);
+            } else {
+              setApoBannerMsg("⚠️ Si Windows a demandé confirmation, redémarre FreePad pour valider.");
+            }
+            setIsInstallingApo(false);
+          }, 3500);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("installApo error:", e);
+    }
+    setIsInstallingApo(false);
+  };
 
   // Ensure AudioContext is fully running on any user interaction
   useEffect(() => {
@@ -886,6 +943,40 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* PROMINENT DIRECT DRIVER BANNER (ZERO VB-CABLE - FAIT PAR ZIOTI) */}
+      {!isApoInstalled && (
+        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-6 py-2 flex items-center justify-between gap-3 shadow-lg border-b border-amber-400/30">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-black/20 border border-white/20">
+              <Zap className="w-4 h-4 text-amber-200 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white flex items-center gap-2">
+                <span>Active l'injection directe dans ton vrai micro !</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/30 font-mono text-amber-100 font-bold">100% Sans Câble</span>
+              </p>
+              <p className="text-[11px] text-amber-100">
+                Requis pour que tes sons et ton modificateur de voix aillent dans Discord. Fait par <strong className="text-white">zioti</strong>.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleQuickInstallApo}
+            disabled={isInstallingApo}
+            className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-900 text-xs font-black shadow flex items-center gap-1.5 active:scale-95 transition-all shrink-0 cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>{isInstallingApo ? "Activation..." : "⚡ Activer mon micro (1 clic)"}</span>
+          </button>
+        </div>
+      )}
+      {apoBannerMsg && (
+        <div className="bg-emerald-950/90 text-emerald-200 border-b border-emerald-500/40 px-6 py-1.5 text-xs font-semibold text-center flex items-center justify-center gap-2 animate-in fade-in">
+          <CheckCircle className="w-4 h-4 text-emerald-400" />
+          <span>{apoBannerMsg}</span>
+        </div>
+      )}
 
       {/* TOAST NOTIFICATION */}
       {toast && (

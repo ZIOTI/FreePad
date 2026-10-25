@@ -139,75 +139,23 @@ class SoundEngine {
       this.broadcastGain = this.broadcastCtx.createGain();
       this.broadcastGain.gain.setValueAtTime(this.micVolume * this.loudnessBoost, this.broadcastCtx.currentTime);
       this.broadcastGain.connect(this.broadcastMasterGain);
-
-      // Route: MasterBus -> Brickwall Limiter -> Destination (Single clean WASAPI endpoint - zero double routing)
       this.broadcastMasterGain.connect(this.broadcastLimiter);
-      this.broadcastLimiter.connect(this.broadcastCtx.destination);
 
+      // CRITICAL: NEVER connect broadcastLimiter to broadcastCtx.destination if broadcastDeviceId is 'default'!
+      // This prevents audio from looping back into user headphones/speakers and causing double sounds or Larsen screech!
       if (this.broadcastDeviceId && this.broadcastDeviceId !== 'default') {
+        this.broadcastLimiter.connect(this.broadcastCtx.destination);
         this.setOutputDevice('broadcast', this.broadcastDeviceId).catch(() => {});
-      } else {
-        // Auto-detect virtual device (VB-Cable, FreePad, Voicemod) for zero-config Discord routing
-        this.autoDetectVirtualDevice().then(dev => {
-          if (dev && this.broadcastDeviceId === 'default') {
-            this.setOutputDevice('broadcast', dev.deviceId).catch(() => {});
-          }
-        });
       }
     } catch (e) {
       console.warn("Broadcast context:", e);
     }
   }
 
-  async autoDetectVirtualDevice() {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const outputs = devices.filter(d => d.kind === 'audiooutput');
-      const virtualKeywords = ['cable input', 'vb-audio', 'freepad', 'cable', 'voicemod', 'virtual audio', 'ligne (voicemod'];
-      for (const kw of virtualKeywords) {
-        const found = outputs.find(d => {
-          const l = (d.label || '').toLowerCase();
-          return l.includes(kw) && !l.includes('steam');
-        });
-        if (found) {
-          console.log(`[SoundEngine] Auto-detected virtual broadcast device: ${found.label} (${found.deviceId})`);
-          return found;
-        }
-      }
-    } catch (e) {
-      console.warn("Virtual device detection notice:", e);
-    }
-    return null;
-  }
-
   ensureBroadcastBridge() {
-    if (!this.ctx || !this.broadcastCtx) return;
-
-    if (this.broadcastCtx.state === 'suspended') {
-      this.broadcastCtx.resume().catch(() => {});
-    }
-
-    if (!this.micPassthroughGain) {
-      this.micPassthroughGain = this.broadcastCtx.createGain();
-      if (this.broadcastMasterGain) {
-        this.micPassthroughGain.connect(this.broadcastMasterGain);
-      } else {
-        this.micPassthroughGain.connect(this.broadcastCtx.destination);
-      }
-    }
-    this.micPassthroughGain.gain.setValueAtTime(this.realMicVolume, this.broadcastCtx.currentTime);
-
-    if (!this.micBroadcastBridgeStream && voiceChangerEngine && voiceChangerEngine.outputNode) {
-      try {
-        this.micBroadcastBridgeDest = this.ctx.createMediaStreamDestination();
-        voiceChangerEngine.outputNode.connect(this.micBroadcastBridgeDest);
-        this.micBroadcastBridgeStream = this.broadcastCtx.createMediaStreamSource(this.micBroadcastBridgeDest.stream);
-        this.micBroadcastBridgeStream.connect(this.micPassthroughGain);
-      } catch (e) {
-        console.warn("ensureBroadcastBridge bridge notice:", e);
-      }
-    }
+    // Purged VB-Cable passthrough - Fait par zioti
+    // In Direct APO mode, microphone audio and morphed voice are injected directly into audiodg.exe!
+    // We never route microphone audio into broadcastCtx or local speakers to eliminate any Larsen feedback screech.
   }
 
   updateGraphRouting() {
@@ -253,16 +201,14 @@ class SoundEngine {
     }
   }
 
-  // Acoustic speech level formula: Decibel logarithmic scaling calibrated for Windows USB/Headset mics
-  // Fait par zioti
+  // Acoustic speech level formula: High sensitivity calibrated for Windows USB/Headset mics (Fait par zioti)
   _calcAcousticLevel(peak, rms) {
-    const effectiveAmp = Math.max(peak, (rms || 0) * 1.6);
-    if (effectiveAmp < 0.0012) return 0; // noise floor / silence
-    const db = 20 * Math.log10(effectiveAmp); // -100 to 0 dBFS
-    // Map [-52 dBFS, -8 dBFS] smoothly to [0.0, 1.0]
-    const scaled = (db + 52) / 44;
-    const clamped = Math.max(0, Math.min(1.0, scaled));
-    return Math.min(1.0, Math.max(0, Math.pow(clamped, 0.9)));
+    const amp = Math.max(peak, (rms || 0) * 1.8);
+    // Background noise floor: 0.002 (-54 dBFS)
+    if (amp < 0.002) return 0;
+    // Map 0.002 to 0.35 smoothly to 0.0 .. 1.0 with perceptual power curve
+    const normalized = Math.min(1.0, (amp - 0.002) / 0.33);
+    return Math.min(1.0, Math.max(0, Math.pow(normalized, 0.75)));
   }
 
   async toggleMicPassthrough(enabled, inputDeviceId = null, inputDeviceLabel = '', forceRestart = false) {
@@ -391,85 +337,6 @@ class SoundEngine {
       }
       this.micAnalyser.connect(this.micSilentPullGain);
 
-      // Dedicated ScriptProcessor for direct 100fps raw PCM acoustic measurement
-      if (this._trackReader) {
-        try { this._trackReader.cancel(); } catch (e) {}
-        this._trackReader = null;
-      }
-      if (this.micMeterNode) {
-        try { this.micMeterNode.disconnect(); } catch (e) {}
-      }
-      this.micMeterNode = this.ctx.createScriptProcessor(512, 1, 1);
-      this._lastMicLevel = 0;
-      this.micMeterNode.onaudioprocess = (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        let sumSquares = 0;
-        let peak = 0;
-        for (let i = 0; i < input.length; i++) {
-          const val = input[i];
-          const abs = Math.abs(val);
-          if (abs > peak) peak = abs;
-          sumSquares += val * val;
-        }
-        const rms = Math.sqrt(sumSquares / input.length);
-        const lvl = this._calcAcousticLevel(peak, rms);
-        if (lvl > 0.005) {
-          this._lastMicLevel = lvl;
-        } else {
-          this._lastMicLevel = Math.max(0, (this._lastMicLevel || 0) * 0.88);
-        }
-      };
-      this.realMicSourceNode.connect(this.micMeterNode);
-      this.micMeterNode.connect(this.micSilentPullGain);
-
-      // MediaStreamTrackProcessor: Direct hardware PCM reader bypassing WebAudio entirely
-      if (window.MediaStreamTrackProcessor && stream.getAudioTracks().length > 0) {
-        const audioTrack = stream.getAudioTracks()[0];
-        try {
-          if (this._trackReader) {
-            try { this._trackReader.cancel(); } catch (e) {}
-            this._trackReader = null;
-          }
-          this._trackProcessor = new window.MediaStreamTrackProcessor({ track: audioTrack });
-          const reader = this._trackProcessor.readable.getReader();
-          this._trackReader = reader;
-          const readTrack = async () => {
-            try {
-              while (this.realMicStream && audioTrack.readyState === 'live') {
-                const { done, value } = await reader.read();
-                if (done || !value) break;
-                try {
-                  const n = value.numberOfFrames;
-                  if (n > 0) {
-                    const pcm = new Float32Array(n);
-                    value.copyTo(pcm, { planeIndex: 0, format: 'f32-planar' });
-                    let sumSq = 0;
-                    let pk = 0;
-                    for (let i = 0; i < pcm.length; i++) {
-                      const a = Math.abs(pcm[i]);
-                      if (a > pk) pk = a;
-                      sumSq += a * a;
-                    }
-                    const r = Math.sqrt(sumSq / pcm.length);
-                    const lvl = this._calcAcousticLevel(pk, r);
-                    this._lastMicLevel = lvl;
-                  }
-                } catch (eFrame) {
-                  // Fallback for non-planar frame copy
-                } finally {
-                  value.close();
-                }
-              }
-            } catch (err) {
-              // Reader cancelled or stopped
-            }
-          };
-          readTrack();
-        } catch (eProc) {
-          console.warn("[SoundEngine] MediaStreamTrackProcessor notice:", eProc?.message || eProc);
-        }
-      }
-
       // Connect Voice Changer Engine in this.ctx
       await voiceChangerEngine.init(this.ctx);
       voiceChangerEngine.connectMicSource(this.realMicSourceNode);
@@ -506,14 +373,6 @@ class SoundEngine {
     if (this.micBroadcastBridgeDest) {
       try { this.micBroadcastBridgeDest.disconnect(); } catch (e) {}
       this.micBroadcastBridgeDest = null;
-    }
-    if (this._trackReader) {
-      try { this._trackReader.cancel(); } catch (e) {}
-      this._trackReader = null;
-    }
-    if (this.micMeterNode) {
-      try { this.micMeterNode.disconnect(); } catch (e) {}
-      this.micMeterNode = null;
     }
     this._lastMicLevel = 0;
     voiceChangerEngine.stopApoVoiceStream();
@@ -996,40 +855,36 @@ class SoundEngine {
       this.ctx.resume().catch(() => {});
     }
 
-    // 1. Direct hardware PCM meter node level (calibrated via _calcAcousticLevel)
-    if (this._lastMicLevel !== undefined && this._lastMicLevel > 0.005) {
-      const lvl = this._lastMicLevel;
-      this._lastMicLevel = Math.max(0, this._lastMicLevel * 0.94);
-      return lvl;
-    }
-
     if (!this.micAnalyser) return 0;
-    
-    // 2. Time Domain RMS + Peak for true acoustic speech measurement (Decibel logarithmic curve)
+
+    let peak = 0;
+    let sumSquares = 0;
+    let count = 0;
+
     if (typeof this.micAnalyser.getFloatTimeDomainData === 'function') {
       const timeData = new Float32Array(this.micAnalyser.fftSize);
       this.micAnalyser.getFloatTimeDomainData(timeData);
-      let sumSquares = 0;
-      let peak = 0;
-      for (let i = 0; i < timeData.length; i++) {
+      count = timeData.length;
+      for (let i = 0; i < count; i++) {
         const val = timeData[i];
         const abs = Math.abs(val);
         if (abs > peak) peak = abs;
         sumSquares += val * val;
       }
-      const rms = Math.sqrt(sumSquares / timeData.length);
-      return this._calcAcousticLevel(peak, rms);
+    } else {
+      const byteData = new Uint8Array(this.micAnalyser.fftSize);
+      this.micAnalyser.getByteTimeDomainData(byteData);
+      count = byteData.length;
+      for (let i = 0; i < count; i++) {
+        const centered = (byteData[i] - 128) / 128.0;
+        const abs = Math.abs(centered);
+        if (abs > peak) peak = abs;
+        sumSquares += centered * centered;
+      }
     }
 
-    // Fallback: Byte frequency focusing on speech bins
-    const data = new Uint8Array(this.micAnalyser.frequencyBinCount);
-    this.micAnalyser.getByteFrequencyData(data);
-    let voiceSum = 0;
-    const voiceBins = Math.min(data.length, 8);
-    for (let i = 0; i < voiceBins; i++) {
-      voiceSum += data[i];
-    }
-    return Math.min(1.0, voiceSum / (voiceBins * 90));
+    const rms = count > 0 ? Math.sqrt(sumSquares / count) : 0;
+    return this._calcAcousticLevel(peak, rms);
   }
 
   setNormalization(enabled) {

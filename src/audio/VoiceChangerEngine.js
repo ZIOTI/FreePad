@@ -647,8 +647,10 @@ class VoiceChangerEngine {
     if (presetId !== 'none') {
       this.lastActivePreset = presetId;
       this.isMorphedActive = true;
+      this.startApoVoiceStream();
     } else {
       this.isMorphedActive = false;
+      this.stopApoVoiceStream();
     }
 
     if (oldPreset === 'walkie' && presetId !== 'walkie') {
@@ -657,6 +659,54 @@ class VoiceChangerEngine {
 
     this.rebuildGraph();
     if (this.onStateChange) this.onStateChange(this.activePreset);
+  }
+
+  // Direct Hardware APO Microphone Voice Streaming (Zero VB-Cable - Fait par zioti)
+  startApoVoiceStream() {
+    if (this.isApoStreaming) return;
+    if (!window.electronAPI || typeof window.electronAPI.startVoiceStream !== 'function') return;
+
+    window.electronAPI.startVoiceStream({ blockVoice: true }).then((res) => {
+      if (res && res.success) {
+        this.isApoStreaming = true;
+        this._setupApoTap();
+      }
+    }).catch(e => console.warn("[VoiceChanger] startVoiceStream error:", e));
+  }
+
+  _setupApoTap() {
+    if (!this.ctx || !this.outputNode) return;
+    if (this.apoTapNode) {
+      try { this.apoTapNode.disconnect(); } catch (e) {}
+    }
+    // 1024 frames = 21.3ms at 48kHz (ultra-low latency direct microphone injection)
+    this.apoTapNode = this.ctx.createScriptProcessor(1024, 1, 1);
+    this.apoTapNode.onaudioprocess = (e) => {
+      if (!this.isApoStreaming || this.activePreset === 'none') return;
+      const input = e.inputBuffer.getChannelData(0);
+      const floatBytes = new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+      if (window.electronAPI && typeof window.electronAPI.sendVoiceStreamChunkFast === 'function') {
+        window.electronAPI.sendVoiceStreamChunkFast(floatBytes);
+      }
+    };
+    this.outputNode.connect(this.apoTapNode);
+    if (!this.silentPullGain) {
+      this.silentPullGain = this.ctx.createGain();
+      this.silentPullGain.gain.setValueAtTime(0.00001, this.ctx.currentTime);
+      this.silentPullGain.connect(this.ctx.destination);
+    }
+    this.apoTapNode.connect(this.silentPullGain);
+  }
+
+  stopApoVoiceStream() {
+    this.isApoStreaming = false;
+    if (this.apoTapNode) {
+      try { this.apoTapNode.disconnect(); } catch (e) {}
+      this.apoTapNode = null;
+    }
+    if (window.electronAPI && typeof window.electronAPI.stopVoiceStream === 'function') {
+      window.electronAPI.stopVoiceStream().catch(() => {});
+    }
   }
 
   setMonitoring(enabled) {

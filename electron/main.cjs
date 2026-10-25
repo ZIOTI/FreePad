@@ -548,19 +548,21 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"
 `;
     fs.writeFileSync(batPath, batContent, 'utf8');
 
-    // 100% Reliable Native Windows ShellExecute UAC Elevation via temporary VBScript
-    const vbsPath = path.join(binDir, 'elevate.vbs');
-    const vbsContent = `Set objShell = CreateObject("Shell.Application")
-objShell.ShellExecute "cmd.exe", "/c """"${batPath}""""", "", "runas", 1
-`;
-    fs.writeFileSync(vbsPath, vbsContent, 'utf8');
-
-    const wscript = spawn('wscript.exe', [vbsPath], {
-      detached: true,
-      windowsHide: false,
-      stdio: 'ignore'
+    // 100% Reliable Native Windows UAC Elevation directly via PowerShell Start-Process (Fait par zioti)
+    // Avoids wscript/cscript dependency which can be blocked by security software
+    const psCmd = `Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""${ps1Path}""'`;
+    exec(`powershell.exe -NoProfile -Command "${psCmd}"`, (err) => {
+      if (err) {
+        console.warn("Direct PowerShell elevation failed, trying batch fallback:", err.message);
+        try {
+          const vbsPath = path.join(binDir, 'elevate.vbs');
+          const vbsContent = `Set objShell = CreateObject("Shell.Application")\r\nobjShell.ShellExecute "cmd.exe", "/c """"${batPath}""""", "", "runas", 1\r\n`;
+          fs.writeFileSync(vbsPath, vbsContent, 'utf8');
+          const wscript = spawn('wscript.exe', [vbsPath], { detached: true, windowsHide: false, stdio: 'ignore' });
+          wscript.unref();
+        } catch (e) {}
+      }
     });
-    wscript.unref();
 
     return { success: true };
   } catch (err) {

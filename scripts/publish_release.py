@@ -38,27 +38,30 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Détection Universelle Tout Micro USB & Calibrage Acoustique dB"
-BODY = f"""# 🎉 FreePad {TAG} — Détection Universelle Tout Micro USB & Calibrage Acoustique dB
+RELEASE_NAME = f"FreePad {TAG} — 100% Injection Directe Micro (Zéro Câble Virtuel) & Fini les Bruits Parasites"
+BODY = f"""# 🎉 FreePad {TAG} — 100% Injection Directe Micro (Zéro Câble Virtuel) & Fini les Bruits Parasites
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.3 ?
+### 🚀 Quoi de neuf dans la v1.3.4 ?
 
-#### 1. 🎙️ Auto-Détection Intelligente du Vrai Micro Physique
-* 🎯 **Élimination automatique des faux périphériques :** FreePad analyse désormais la liste de tes périphériques d'entrée au démarrage et filtre automatiquement les câbles virtuels muets (comme Voicemod, VB-Cable ou Mixage Stéréo) qui empêchaient la voix d'être captée sur les PC de tes potes !
-* 🔌 **Liaison directe au micro USB :** Que tu utilises un micro streaming USB (Nor-Tec, Rode, Blue Yeti, Fifine, HyperX) ou une prise casque Realtek, FreePad le détecte et le sélectionne automatiquement dès le lancement.
-* 🎯 **Bouton 1-Clic "Détecter mon vrai micro" :** Ajouté dans les Paramètres pour re-scanner et basculer instantanément sur ton micro physique en cas de branchement à chaud.
+#### 1. 🎙️ 100% Injection Directe dans ton Vrai Micro (ZÉRO Câble Virtuel Requis)
+* ⚡ **Suppression totale de VB-Cable :** Plus besoin d'installer de câble virtuel VB-Audio, ni de configurer CABLE Input / CABLE Output dans Windows et Discord ! FreePad injecte directement les sons et le modificateur de voix dans le pilote de ton microphone physique (USB, Nor-Tec, Casque, Realtek, HyperX, etc.) exactement comme Soundpad.
+* 🎧 **Dans Discord :** Tu n'as absolument RIEN à modifier ! Tu gardes ton vrai microphone sélectionné en entrée. Tes potes t'entendent parler normalement, et dès que tu lances un son ou actives le modificateur de voix, ils l'entendent directement dans ton micro !
 
-#### 2. 📊 Calibrage Acoustique Logarithmique en Décibels (dBFS)
-* 👂 **Sensibilité voix humaine naturelle :** Remplacement de l'ancien calcul linéaire par une courbe logarithmique en décibels (-52 dBFS à -8 dBFS) identique à celle de Discord et des tables de mixage pros.
-* 🗣️ **Détection dès le premier mot :** Fini le faux statut "Silence" ! Même un chuchotement ou une voix à 20-30 cm du micro USB fait réagir la jauge verte en direct de 20% à 70%.
+#### 2. 🔇 Élimination Totale du Bruit Horrible (Anti-Larsen) & des Sons en Double
+* 🛡️ **Zéro écho local :** Correction du renvoi audio qui provoquait un retour de micro dans le casque et un larsen strident sur les PC sans câble virtuel.
+* 🎵 **Fin des sons en double :** Les sons du soundboard ne sont plus jamais joués deux fois dans ton casque. Tu entends le son une seule fois dans ton casque, et tes potes l'entendent une seule fois dans l'appel.
 
-#### 3. 🛡️ Déverrouillage Sandbox Audio Windows & Réveil Forcé
-* ⚡ **Suppression du blocage Sandbox :** Ajout du commutateur Chromium `--disable-features=AudioServiceSandbox` pour que les pilotes audio Windows USB tiers puissent envoyer leur flux sans restriction de sécurité.
-* 🔄 **Bouton "Réveiller le micro" renforcé :** Force une réinitialisation complète du flux matériel WASAPI en mémoire vive.
+#### 3. 🎯 Détection de Voix Ultra-Sensible & Témoin en Temps Réel
+* 📈 **Sensibilité acoustique repensée :** La jauge de test vocal détecte désormais instantanément toute voix humaine, même pour les micros streaming USB à gain bas (comme les micros Nor-Tec ou USB de tes potes).
+* 🟢 **Signal instantané :** La jauge verte réagit immédiatement dès que tu parles dans ton vrai micro ("Signal Voix Détecté 🎤").
+
+#### 4. ⚡ Installation Automatique du Pilote & Bannière 1-Clic
+* 🚀 **Installateur intelligent (NSIS Admin) :** L'installateur configure automatiquement le pilote audio direct lors de l'installation de FreePad.
+* 💡 **Bannière d'activation 1-clic :** Si le pilote n'est pas encore actif, un bouton bien visible apparaît en haut de l'application pour l'activer en 1 clic sans prise de tête.
 
 ---
 

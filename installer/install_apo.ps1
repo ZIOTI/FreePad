@@ -1,11 +1,16 @@
-# FreePad APO Driver Installer
-# Permet l'injection directe des sons dans n'importe quel microphone physique (USB, Casque, Realtek, HyperX, Razer, Logitech, etc.)
-# Sans avoir besoin de Soundpad, ni de Steam Streaming Microphone.
+param(
+    [switch]$Silent
+)
+
+# FreePad APO Driver Installer — 100% Direct Micro Injection (Zero VB-Cable - Fait par zioti)
+# Permet l'injection directe des sons et de la voix modifiée dans n'importe quel microphone physique (USB, Casque, Nor-Tec, Realtek, HyperX, Razer, Logitech, etc.)
+# Sans avoir besoin de VB-Cable, ni de Soundpad, ni de Steam Streaming Microphone.
 
 $ErrorActionPreference = "Continue"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "       INSTALLATEUR DU PILOTE MICRO DIRECT FREEPAD        " -ForegroundColor Yellow
+Write-Host "                   (Fait par zioti)                       " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -13,16 +18,20 @@ Write-Host ""
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "[!] Droits administrateur requis. Relance avec élévation UAC..." -ForegroundColor Yellow
-    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    $silentArg = if ($Silent) { " -Silent" } else { "" }
+    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"$silentArg" -Verb RunAs
     exit
 }
 
 $scriptDir = Split-Path -Parent $PSCommandPath
 $possibleDllSources = @(
     (Join-Path $scriptDir "UniteFx.dll"),
-    (Join-Path $env:APPDATA "freepad\bin\UniteFx.dll"),
     (Join-Path $scriptDir "..\driver\UniteFx.dll"),
     (Join-Path $scriptDir "driver\UniteFx.dll"),
+    (Join-Path $env:APPDATA "freepad\bin\UniteFx.dll"),
+    (Join-Path $env:LOCALAPPDATA "Programs\freepad\resources\driver\UniteFx.dll"),
+    (Join-Path ${env:ProgramFiles} "FreePad\resources\driver\UniteFx.dll"),
+    (Join-Path ${env:ProgramFiles(x86)} "FreePad\resources\driver\UniteFx.dll"),
     (Join-Path (Get-Location) "UniteFx.dll"),
     (Join-Path (Get-Location) "driver\UniteFx.dll"),
     (Join-Path $scriptDir "..\resources\driver\UniteFx.dll"),
@@ -41,17 +50,28 @@ if (-not $driverDllSource) {
     Write-Host "[-] ERREUR: Fichier pilote UniteFx.dll introuvable." -ForegroundColor Red
     Write-Host "    Recherché dans les dossiers de l'application et AppData." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Appuyez sur une touche pour quitter..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    if (-not $Silent) {
+        Write-Host "Appuyez sur une touche pour quitter..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
     exit 1
 }
 
 Write-Host "[1/5] Copie du pilote système..." -ForegroundColor Green
 $sys32Dll = "C:\Windows\System32\UniteFx1.8.0.dll"
 
+$needsCopy = $true
 if (Test-Path $sys32Dll) {
-    Write-Host "      -> Pilote déjà présent dans $sys32Dll" -ForegroundColor Gray
-} else {
+    try {
+        $item = Get-Item $sys32Dll
+        if ($item.Length -gt 100000) {
+            Write-Host "      -> Pilote déjà présent et valide dans $sys32Dll" -ForegroundColor Gray
+            $needsCopy = $false
+        }
+    } catch {}
+}
+
+if ($needsCopy) {
     try {
         Copy-Item -Path $driverDllSource -Destination $sys32Dll -Force -ErrorAction Stop
         Write-Host "      -> Pilote copié avec succès dans $sys32Dll" -ForegroundColor Gray
@@ -68,8 +88,7 @@ if (Test-Path $sys32Dll) {
                 Write-Host "      -> Pilote existant conservé dans $sys32Dll" -ForegroundColor Gray
             } else {
                 Write-Host "      [-] Échec de copie dans System32: $($_.Exception.Message)" -ForegroundColor Red
-                Write-Host "      [!] Conseil: Clic droit sur le fichier -> Exécuter en tant qu'administrateur" -ForegroundColor Yellow
-                Start-Sleep -Seconds 3
+                if (-not $Silent) { Start-Sleep -Seconds 3 }
                 exit 1
             }
         }
@@ -166,8 +185,9 @@ if (Test-Path $baseCapture) {
         $name = $prop.'{a45c254e-df1c-4efd-8020-67d146a850e0},2'
         $hwName = $prop.'{b3f8fa53-0004-438e-9003-51a46e139bfc},6'
 
-        # Filtrer les prises internes inactives de cartes mères Realtek (Subwoofer, Rear, AUX, etc.)
-        $ignoreWords = @("Subwoofer", "Center", "Rear", "Side", "Mixage st", "Stereo Mix", "AUX", "Green In", "Blue In", "Pink In")
+        # Filtrer les prises internes inactives et les câbles virtuels (CABLE, VB-Audio, Voicemeeter, Stereo Mix, Steam)
+        # Fait par zioti
+        $ignoreWords = @("Subwoofer", "Center", "Rear", "Side", "Mixage st", "Stereo Mix", "AUX", "Green In", "Blue In", "Pink In", "CABLE", "VB-Audio", "Voicemeeter", "Voicemod", "Steam")
         $isIgnored = $false
         foreach ($iw in $ignoreWords) {
             if (($name -and $name -like "*$iw*") -or ($hwName -and $hwName -like "*$iw*")) {
@@ -305,4 +325,8 @@ Write-Host ""
 Write-Host "Tes sons entreront maintenant directement dans ton micro" -ForegroundColor White
 Write-Host "sans aucun réglage nécessaire dans Discord ou tes jeux !" -ForegroundColor White
 Write-Host ""
-Start-Sleep -Seconds 3
+Write-Host "Fait par zioti — 100% Direct Micro Injection" -ForegroundColor Cyan
+Write-Host ""
+if (-not $Silent) {
+    Start-Sleep -Seconds 2
+}
