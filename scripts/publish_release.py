@@ -38,30 +38,25 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — 100% Injection Directe Micro (Zéro Câble Virtuel) & Fini les Bruits Parasites"
-BODY = f"""# 🎉 FreePad {TAG} — 100% Injection Directe Micro (Zéro Câble Virtuel) & Fini les Bruits Parasites
+RELEASE_NAME = f"FreePad {TAG} — 100% Mode Direct Micro & Modulateur de Voix Sans Grésillement"
+BODY = f"""# 🎉 FreePad {TAG} — 100% Mode Direct Micro & Modulateur de Voix Sans Grésillement
 
-**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
+**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.4 ?
+### 🚀 Quoi de neuf dans la v1.3.5 ?
 
-#### 1. 🎙️ 100% Injection Directe dans ton Vrai Micro (ZÉRO Câble Virtuel Requis)
-* ⚡ **Suppression totale de VB-Cable :** Plus besoin d'installer de câble virtuel VB-Audio, ni de configurer CABLE Input / CABLE Output dans Windows et Discord ! FreePad injecte directement les sons et le modificateur de voix dans le pilote de ton microphone physique (USB, Nor-Tec, Casque, Realtek, HyperX, etc.) exactement comme Soundpad.
-* 🎧 **Dans Discord :** Tu n'as absolument RIEN à modifier ! Tu gardes ton vrai microphone sélectionné en entrée. Tes potes t'entendent parler normalement, et dès que tu lances un son ou actives le modificateur de voix, ils l'entendent directement dans ton micro !
+#### 1. 🎙️ Voice Changer 100% Sans Câble Virtuel (Fin de "CABLE Output")
+* ⚡ **Suppression totale de VB-Cable dans le Voice Changer :** La fenêtre du Voice Changer ne demande plus jamais de sélectionner ou d'installer un câble virtuel !
+* 🎧 **Dans Discord :** Tu choisis simplement ton **vrai micro physique** (ex: WOODBRASS UM1, Logitech, HyperX...). FreePad remplace ta voix en direct au niveau du pilote audio matériel sans aucun câble ni logiciel intermédiaire !
+* 📋 **Bouton Copier 1-Clic :** Copie directement le nom exact de ton vrai micro pour Discord.
 
-#### 2. 🔇 Élimination Totale du Bruit Horrible (Anti-Larsen) & des Sons en Double
-* 🛡️ **Zéro écho local :** Correction du renvoi audio qui provoquait un retour de micro dans le casque et un larsen strident sur les PC sans câble virtuel.
-* 🎵 **Fin des sons en double :** Les sons du soundboard ne sont plus jamais joués deux fois dans ton casque. Tu entends le son une seule fois dans ton casque, et tes potes l'entendent une seule fois dans l'appel.
-
-#### 3. 🎯 Détection de Voix Ultra-Sensible & Témoin en Temps Réel
-* 📈 **Sensibilité acoustique repensée :** La jauge de test vocal détecte désormais instantanément toute voix humaine, même pour les micros streaming USB à gain bas (comme les micros Nor-Tec ou USB de tes potes).
-* 🟢 **Signal instantané :** La jauge verte réagit immédiatement dès que tu parles dans ton vrai micro ("Signal Voix Détecté 🎤").
-
-#### 4. ⚡ Installation Automatique du Pilote & Bannière 1-Clic
-* 🚀 **Installateur intelligent (NSIS Admin) :** L'installateur configure automatiquement le pilote audio direct lors de l'installation de FreePad.
-* 💡 **Bannière d'activation 1-clic :** Si le pilote n'est pas encore actif, un bouton bien visible apparaît en haut de l'application pour l'activer en 1 clic sans prise de tête.
+#### 2. 🔇 Élimination Totale du Bruit Horrible dans les Effets Vocaux
+* 🛡️ **Réplication des Canaux Stéréo (APO Driver) :** Correction du décalage mono/stéréo dans le pilote matériel qui causait un son robotique accéléré et un grésillement insupportable.
+* 🎛️ **Limiteur Brickwall Studio (-1.5 dBFS) :** Ajout d'un compresseur/limiteur professionnel qui empêche tout écrêtage numérique et élimine les pointes de résonance sur les effets Démon, Hélium, et Mégaphone.
+* 🤖 **Noise Gate sur le Robot / Vocoder :** Les oscillateurs Daft Punk se coupent instantanément en silence dès que tu ne parles pas, supprimant tout buzz de transformateur en arrière-plan.
+* 🎧 **Retour Casque Sécurisé :** Désactivé par défaut pour éliminer tout risque d'effet Larsen avec les haut-parleurs.
 
 ---
 

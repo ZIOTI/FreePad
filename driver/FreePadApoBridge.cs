@@ -264,6 +264,20 @@ class FreePadApoBridge {
         }
     }
 
+    static byte[] ExpandMonoFloatToChannels(byte[] monoData, int channels) {
+        if (channels <= 1 || monoData == null || monoData.Length < 4) return monoData;
+        int sampleCount = monoData.Length / 4;
+        byte[] expanded = new byte[sampleCount * channels * 4];
+        for (int i = 0; i < sampleCount; i++) {
+            int srcOffset = i * 4;
+            int dstBase = i * channels * 4;
+            for (int c = 0; c < channels; c++) {
+                Buffer.BlockCopy(monoData, srcOffset, expanded, dstBase + (c * 4), 4);
+            }
+        }
+        return expanded;
+    }
+
     static bool StreamPcmBytes(byte[] rawBytes, int sessionId) {
         if (!InitApo(true)) {
             for (int r = 0; r < 5 && activeSlots.Count == 0; r++) {
@@ -273,13 +287,20 @@ class FreePadApoBridge {
             if (activeSlots.Count == 0) return false;
         }
 
+        int targetChannels = Math.Max(1, apoChannels);
+        byte[] streamBuffer = (targetChannels > 1) ? ExpandMonoFloatToChannels(rawBytes, targetChannels) : rawBytes;
+
         int bytesSent = 0;
-        int total = rawBytes.Length;
-        int bytesPerSec = Math.Max(1, apoSampleRate * apoChannels * 4);
+        int total = streamBuffer.Length;
+        int bytesPerSec = Math.Max(1, apoSampleRate * targetChannels * 4);
+        int frameBytes = targetChannels * 4;
         System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
 
         while (bytesSent < total && sessionId == currentSessionId) {
             int toSend = Math.Min(CHUNK_SIZE, total - bytesSent);
+            toSend = (toSend / frameBytes) * frameBytes;
+            if (toSend <= 0) toSend = frameBytes;
+
             double chunkSec = (double)toSend / bytesPerSec;
             int chunkExpectedMs = (int)(chunkSec * 1000.0);
 
@@ -289,7 +310,7 @@ class FreePadApoBridge {
             for (int i = 0; i < activeSlots.Count; i++) {
                 var slot = activeSlots[i];
                 try {
-                    Marshal.Copy(rawBytes, bytesSent, new IntPtr(slot.pView.ToInt64() + 0x34), toSend);
+                    Marshal.Copy(streamBuffer, bytesSent, new IntPtr(slot.pView.ToInt64() + 0x34), toSend);
                     Marshal.WriteInt32(slot.pView, 0x30, toSend);
                     Marshal.WriteInt32(slot.pView, 0x2C, 1);
                     if (slot.hCallback != IntPtr.Zero) SetEvent(slot.hCallback);
@@ -656,8 +677,10 @@ class FreePadApoBridge {
                                         Thread.Sleep(1);
                                         waitCount++;
                                     }
-                                    Marshal.Copy(pcmData, 0, new IntPtr(slot.pView.ToInt64() + 0x34), chunkLen);
-                                    Marshal.WriteInt32(slot.pView, 0x30, chunkLen);
+                                    byte[] finalPcm = (slot.Channels > 1) ? ExpandMonoFloatToChannels(pcmData, slot.Channels) : pcmData;
+                                    int finalLen = finalPcm.Length;
+                                    Marshal.Copy(finalPcm, 0, new IntPtr(slot.pView.ToInt64() + 0x34), finalLen);
+                                    Marshal.WriteInt32(slot.pView, 0x30, finalLen);
                                     Marshal.WriteInt32(slot.pView, 0x2C, 1);
                                     if (slot.hCallback != IntPtr.Zero) SetEvent(slot.hCallback);
                                 } catch {}

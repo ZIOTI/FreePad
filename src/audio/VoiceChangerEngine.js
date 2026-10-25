@@ -248,11 +248,18 @@ class VoiceFXProcessor extends AudioWorkletProcessor {
         const square = this.oscPhaseSub < 0.5 ? 0.5 : -0.5;
         const carrier = (sawA * 0.45 + sawB * 0.35 + square * 0.20);
 
-        this.envVoice = this.envVoice * 0.96 + Math.abs(inS) * 0.04;
+        const absVal = Math.abs(inS);
+        // Noise gate: if input is below threshold (0.005), attenuate envelope to silence background carrier hum
+        if (absVal < 0.005) {
+          this.envVoice *= 0.88;
+        } else {
+          this.envVoice = this.envVoice * 0.94 + absVal * 0.06;
+        }
         this.lpVoice = this.lpVoice * 0.85 + inS * 0.15;
         const sibilance = inS - this.lpVoice;
 
-        outChannel[i] = (carrier * this.envVoice * 2.6) + (sibilance * 0.22);
+        const morphed = (carrier * this.envVoice * 2.4) + (sibilance * 0.20);
+        outChannel[i] = Math.max(-0.95, Math.min(0.95, morphed));
       }
       return true;
     }
@@ -449,11 +456,18 @@ class FallbackVoiceFXDSP {
         const square = this.oscPhaseSub < 0.5 ? 0.5 : -0.5;
         const carrier = (sawA * 0.45 + sawB * 0.35 + square * 0.20);
 
-        this.envVoice = this.envVoice * 0.96 + Math.abs(inS) * 0.04;
+        const absVal = Math.abs(inS);
+        // Noise gate: if input is below threshold (0.005), attenuate envelope to silence background carrier hum
+        if (absVal < 0.005) {
+          this.envVoice *= 0.88;
+        } else {
+          this.envVoice = this.envVoice * 0.94 + absVal * 0.06;
+        }
         this.lpVoice = this.lpVoice * 0.85 + inS * 0.15;
         const sibilance = inS - this.lpVoice;
 
-        outChannel[i] = (carrier * this.envVoice * 2.6) + (sibilance * 0.22);
+        const morphed = (carrier * this.envVoice * 2.4) + (sibilance * 0.20);
+        outChannel[i] = Math.max(-0.95, Math.min(0.95, morphed));
       }
       return;
     }
@@ -533,14 +547,29 @@ class VoiceChangerEngine {
       this.inputPreamp.gain.setValueAtTime(1.0, this.ctx.currentTime);
     }
 
+    // Master Brickwall Anti-Clipping Limiter (Prevents all digital distortion & larsen screech)
+    if (!this.masterLimiter) {
+      this.masterLimiter = this.ctx.createDynamicsCompressor();
+      this.masterLimiter.threshold.setValueAtTime(-1.5, this.ctx.currentTime);
+      this.masterLimiter.knee.setValueAtTime(0.0, this.ctx.currentTime);
+      this.masterLimiter.ratio.setValueAtTime(20.0, this.ctx.currentTime);
+      this.masterLimiter.attack.setValueAtTime(0.001, this.ctx.currentTime);
+      this.masterLimiter.release.setValueAtTime(0.04, this.ctx.currentTime);
+    }
+
     // Master Voice Changer Bus
-    this.outputNode = this.ctx.createGain();
-    this.outputNode.gain.setValueAtTime(1.0, this.ctx.currentTime);
+    if (!this.outputNode) {
+      this.outputNode = this.ctx.createGain();
+      this.outputNode.gain.setValueAtTime(1.0, this.ctx.currentTime);
+      this.masterLimiter.connect(this.outputNode);
+    }
 
     // Monitoring Gain (Local Headphones Feedback - strictly 0 by default)
-    this.monitoringGain = this.ctx.createGain();
-    this.monitoringGain.gain.setValueAtTime(this.isMonitoringEnabled ? this.monitoringVolume : 0.0, this.ctx.currentTime);
-    this.outputNode.connect(this.monitoringGain);
+    if (!this.monitoringGain) {
+      this.monitoringGain = this.ctx.createGain();
+      this.monitoringGain.gain.setValueAtTime(this.isMonitoringEnabled ? this.monitoringVolume : 0.0, this.ctx.currentTime);
+      this.outputNode.connect(this.monitoringGain);
+    }
     if (soundEngine.headphonesGain) {
       try {
         this.monitoringGain.disconnect();
@@ -684,6 +713,16 @@ class VoiceChangerEngine {
     this.apoTapNode.onaudioprocess = (e) => {
       if (!this.isApoStreaming || this.activePreset === 'none') return;
       const input = e.inputBuffer.getChannelData(0);
+
+      // Clean, de-nan, and clamp samples to [-0.98, +0.98] to guarantee pristine audio
+      for (let i = 0; i < input.length; i++) {
+        let s = input[i];
+        if (isNaN(s) || !isFinite(s)) s = 0.0;
+        else if (s > 0.98) s = 0.98;
+        else if (s < -0.98) s = -0.98;
+        input[i] = s;
+      }
+
       const floatBytes = new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
       if (window.electronAPI && typeof window.electronAPI.sendVoiceStreamChunkFast === 'function') {
         window.electronAPI.sendVoiceStreamChunkFast(floatBytes);
@@ -867,12 +906,13 @@ class VoiceChangerEngine {
     this.cleanupCurrentGraph();
 
     const source = this.inputPreamp || this.inputNode;
+    const dest = this.masterLimiter || this.outputNode;
     const now = this.ctx.currentTime;
     const preset = this.activePreset;
 
     // 1. Natural Voice (Bypass)
     if (preset === 'none') {
-      source.connect(this.outputNode);
+      source.connect(dest);
       return;
     }
 
@@ -891,7 +931,7 @@ class VoiceChangerEngine {
       const delayWet = this.ctx.createGain();
       delayWet.gain.setValueAtTime(0.25, now);
       delay.connect(delayWet);
-      delayWet.connect(this.outputNode);
+      delayWet.connect(dest);
 
       // High-shelf clarity sheen (7.5 kHz +3.5 dB)
       const highShelf = this.ctx.createBiquadFilter();
@@ -907,7 +947,7 @@ class VoiceChangerEngine {
       source.connect(fxNode);
       fxNode.connect(highShelf);
       highShelf.connect(comp);
-      comp.connect(this.outputNode);
+      comp.connect(dest);
       comp.connect(delay);
 
       this.currentFxNodes.push(fxNode, delay, feedback, delayWet, highShelf, comp);
@@ -930,7 +970,7 @@ class VoiceChangerEngine {
       source.connect(fxNode);
       fxNode.connect(bandpass);
       bandpass.connect(comp);
-      comp.connect(this.outputNode);
+      comp.connect(dest);
 
       this.currentFxNodes.push(fxNode, bandpass, comp);
       return;
@@ -977,7 +1017,7 @@ class VoiceChangerEngine {
       comp.connect(cavern);
       cavernGain.connect(master);
 
-      master.connect(this.outputNode);
+      master.connect(dest);
 
       this.currentFxNodes.push(demonPitch, subBoost, lowpass, tubeDist, cavern, cavernGain, comp, master);
       return;
@@ -1015,7 +1055,7 @@ class VoiceChangerEngine {
       presence.connect(highShelf);
       highShelf.connect(comp);
       comp.connect(master);
-      master.connect(this.outputNode);
+      master.connect(dest);
 
       this.currentFxNodes.push(highpass, heliumPitch, presence, highShelf, comp, master);
       return;
@@ -1059,7 +1099,7 @@ class VoiceChangerEngine {
       diodeDist.connect(slapback);
       slapGain.connect(master);
 
-      master.connect(this.outputNode);
+      master.connect(dest);
 
       this.currentFxNodes.push(hp, lp, hornPeak, diodeDist, slapback, slapGain, master);
       return;
@@ -1090,7 +1130,7 @@ class VoiceChangerEngine {
       lp.connect(radioDist);
       radioDist.connect(comp);
       comp.connect(master);
-      master.connect(this.outputNode);
+      master.connect(dest);
 
       this.currentFxNodes.push(hp, lp, radioDist, comp, master);
     }
