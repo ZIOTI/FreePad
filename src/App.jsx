@@ -229,6 +229,24 @@ export default function App() {
     soundEngine.setSoundpadMode(injectionMode === 'direct');
   }, [injectionMode]);
 
+  // Ensure AudioContext is fully running on any user interaction
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (soundEngine && soundEngine.ctx && soundEngine.ctx.state === 'suspended') {
+        soundEngine.ctx.resume().catch(() => {});
+      }
+      if (soundEngine && soundEngine.broadcastCtx && soundEngine.broadcastCtx.state === 'suspended') {
+        soundEngine.broadcastCtx.resume().catch(() => {});
+      }
+    };
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('freepad_loudness_boost', loudnessBoost.toString());
     soundEngine.setLoudnessBoost(loudnessBoost);

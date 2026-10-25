@@ -431,9 +431,26 @@ export default function SettingsModal({
                 <Mic className="w-4 h-4 text-cyan-400" />
                 Microphone Actif Détecté
               </label>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
-                HARDWARE
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await soundEngine.init();
+                    if (soundEngine.ctx && soundEngine.ctx.state === 'suspended') {
+                      await soundEngine.ctx.resume();
+                    }
+                    const micObj = audioInputDevices.find(d => d.deviceId === selectedMicInput);
+                    await soundEngine.toggleMicPassthrough(true, selectedMicInput, micObj?.label || '');
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 font-bold transition-all flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Réveiller le micro</span>
+                </button>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
+                  HARDWARE
+                </span>
+              </div>
             </div>
 
             {(() => {
@@ -500,6 +517,11 @@ export default function SettingsModal({
                 />
               </div>
             </div>
+
+            {/* Micro troubleshooting tip */}
+            <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+              💡 <strong>Astuce :</strong> Si la jauge ne bouge pas quand tu parles, clique sur <strong>"Réveiller le micro"</strong> ci-dessus, et vérifie que ton micro n'est pas coupé (bouton Mute physique ou Paramètres Windows &gt; Confidentialité &gt; Microphone).
+            </p>
 
             {/* In Virtual Mode: Volume of user's voice into virtual cable */}
             {injectionMode === 'virtual' && selectedMicInput !== 'none' && (

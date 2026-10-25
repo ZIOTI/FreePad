@@ -370,17 +370,21 @@ class SoundEngine {
       this.micAnalyser.smoothingTimeConstant = 0.3;
       this.realMicSourceNode.connect(this.micAnalyser);
 
-      // Connect to ctx.destination via silent gain node (0.0 volume)
-      // This is MANDATORY in Chromium to guarantee the Web Audio pull engine actively processes mic frames
+      // Connect to ctx.destination via near-silent gain node (0.00001 volume = -100 dBFS)
+      // Non-zero gain is critical in Chromium: gain=0.0 causes Blink silence optimization to skip pulling upstream audio
       if (!this.micSilentPullGain) {
         this.micSilentPullGain = this.ctx.createGain();
-        this.micSilentPullGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+        this.micSilentPullGain.gain.setValueAtTime(0.00001, this.ctx.currentTime);
         this.micSilentPullGain.connect(this.ctx.destination);
       }
       this.micAnalyser.connect(this.micSilentPullGain);
 
       // Dedicated ScriptProcessor for direct 100fps raw PCM acoustic measurement
-      if (this.micMeterNode) {
+      if (this._trackReader) {
+      try { this._trackReader.cancel(); } catch (e) {}
+      this._trackReader = null;
+    }
+    if (this.micMeterNode) {
         try { this.micMeterNode.disconnect(); } catch (e) {}
       }
       this.micMeterNode = this.ctx.createScriptProcessor(512, 1, 1);
@@ -402,6 +406,49 @@ class SoundEngine {
       };
       this.realMicSourceNode.connect(this.micMeterNode);
       this.micMeterNode.connect(this.micSilentPullGain);
+
+      // MediaStreamTrackProcessor: Direct hardware PCM reader bypassing WebAudio entirely
+      if (window.MediaStreamTrackProcessor && stream.getAudioTracks().length > 0) {
+        const audioTrack = stream.getAudioTracks()[0];
+        try {
+          if (this._trackReader) {
+            try { this._trackReader.cancel(); } catch (e) {}
+            this._trackReader = null;
+          }
+          const processor = new window.MediaStreamTrackProcessor({ track: audioTrack });
+          const reader = processor.readable.getReader();
+          this._trackReader = reader;
+          const readTrack = async () => {
+            try {
+              while (this.realMicStream && audioTrack.readyState === 'live') {
+                const { done, value } = await reader.read();
+                if (done || !value) break;
+                const n = value.numberOfFrames;
+                if (n > 0) {
+                  const pcm = new Float32Array(n);
+                  value.copyTo(pcm, { planeIndex: 0, format: 'f32-planar' });
+                  let sumSq = 0;
+                  let pk = 0;
+                  for (let i = 0; i < pcm.length; i++) {
+                    const a = Math.abs(pcm[i]);
+                    if (a > pk) pk = a;
+                    sumSq += a * a;
+                  }
+                  const r = Math.sqrt(sumSq / pcm.length);
+                  const lvl = Math.max(r * 5.0, pk * 2.2);
+                  this._lastMicLevel = Math.min(1.0, Math.max(0, lvl));
+                }
+                value.close();
+              }
+            } catch (err) {
+              // Reader cancelled or stopped
+            }
+          };
+          readTrack();
+        } catch (eProc) {
+          console.warn("[SoundEngine] MediaStreamTrackProcessor notice:", eProc?.message || eProc);
+        }
+      }
 
       // Connect Voice Changer Engine in this.ctx
       await voiceChangerEngine.init(this.ctx);
@@ -439,6 +486,10 @@ class SoundEngine {
     if (this.micBroadcastBridgeDest) {
       try { this.micBroadcastBridgeDest.disconnect(); } catch (e) {}
       this.micBroadcastBridgeDest = null;
+    }
+    if (this._trackReader) {
+      try { this._trackReader.cancel(); } catch (e) {}
+      this._trackReader = null;
     }
     if (this.micMeterNode) {
       try { this.micMeterNode.disconnect(); } catch (e) {}
@@ -921,8 +972,10 @@ class SoundEngine {
 
   getMicLevel() {
     // 1. Direct hardware PCM meter node level
-    if (this._lastMicLevel !== undefined && this._lastMicLevel > 0) {
-      return this._lastMicLevel;
+    if (this._lastMicLevel !== undefined) {
+      const lvl = this._lastMicLevel;
+      this._lastMicLevel = Math.max(0, this._lastMicLevel * 0.92);
+      if (lvl > 0.005) return lvl;
     }
 
     if (!this.micAnalyser) return 0;

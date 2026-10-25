@@ -38,24 +38,25 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Moteur Audio Actif & Détection Micro Universelle"
-BODY = f"""# 🎉 FreePad {TAG} — Moteur Audio Actif & Détection Micro Universelle
+RELEASE_NAME = f"FreePad {TAG} — Détection Matérielle Directe & Autoplay Déverrouillé"
+BODY = f"""# 🎉 FreePad {TAG} — Détection Matérielle Directe & Autoplay Déverrouillé
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.1 ?
+### 🚀 Quoi de neuf dans la v1.3.2 ?
 
-#### 1. ⚡ Moteur WebAudio Actif en Continu (Pull Engine Garanti)
-* 🔌 **Capture Active Permanente :** Raccordement du flux microphone à la destination audio via un nœud silencieux (`gain = 0.0`). Le moteur WebAudio de Chromium traite désormais les échantillons audio en continu même lorsque le retour casque (monitoring) est désactivé.
-* 📊 **Mesure Directe Matérielle (100 Hz) :** Écoute directe des trames PCM matérielles du microphone (Nor-Tec, Logitech, Fifine, Rode...) à 100 fois par seconde avec calcul instantané RMS + Peak.
+#### 1. 🎤 Lecture Matérielle Directe (MediaStreamTrackProcessor)
+* ⚡ **Accès direct au signal physique :** Intégration de `MediaStreamTrackProcessor` qui lit directement les trames PCM physiques depuis le flux Windows de ton micro (Nor-Tec, Rode, Blue Yeti...). Plus aucune dépendance au moteur WebAudio ni à l'Autoplay Policy de Chromium !
+* 📈 **Décroissance acoustique fluide :** La jauge s'anime en direct et redescend de manière naturelle lorsque tu arrêtes de parler.
 
-#### 2. 🎯 Verrouillage Matériel Précis (Exact Device Binding)
-* 🎙️ **Prise en charge des micros USB réels :** Lorsque tu sélectionnes ton vrai micro (ex: `Microphone (Nor-Tec streaming mic)`), FreePad se verrouille précisément sur ce périphérique physique, évitant tout basculement par défaut sur un périphérique virtuel muet (comme Voicemod).
+#### 2. ⚡ Déverrouillage Autoplay & Permissions Electron
+* 🔓 **Zéro Blocage Navigateur :** Ajout des commutateurs Chromium `--autoplay-policy=no-user-gesture-required` et `--use-fake-ui-for-media-stream` dans Electron pour éliminer toute suspension de l'audio par Windows.
+* 🖱️ **Réveil Global d'Écoute :** Détection automatique du premier clic ou touche pour garantir que le moteur audio ne reste jamais en veille.
 
-#### 3. 🛡️ Débouncing Anti-Rebond
-* 🔒 **Zéro Collision Audio :** La sélection d'un micro dans le menu déroulant est désormais protégée par un filtre anti-rebond. Plus aucun risque de plantage du pilote USB (`NotReadableError`) lors de changements rapides.
+#### 3. 🔄 Bouton "Réveiller le micro" dans les Paramètres
+* ⚡ **Test & Diagnostic 1-Clic :** Ajout d'un bouton dédié à côté du choix du micro pour relancer instantanément la capture en cas de mise en veille d'un périphérique USB.
 
 ---
 
