@@ -125,7 +125,7 @@ export default function App() {
     return localStorage.getItem('freepad_broadcast_output') || 'default';
   });
   const [selectedMicInput, setSelectedMicInput] = useState(() => {
-    return localStorage.getItem('freepad_selected_mic') || 'default';
+    return localStorage.getItem('freepad_selected_mic') || '';
   });
   const [isMicPassthrough, setIsMicPassthrough] = useState(true);
   const [realMicVol, setRealMicVol] = useState(1.0);
@@ -263,23 +263,26 @@ export default function App() {
   }, [broadcastOutput]);
 
   useEffect(() => {
+    if (!selectedMicInput) return;
     localStorage.setItem('freepad_selected_mic', selectedMicInput);
     const timer = setTimeout(() => {
-      if (!selectedMicInput || selectedMicInput === 'none') {
+      if (selectedMicInput === 'none') {
         soundEngine.toggleMicPassthrough(false);
       } else {
         const micObj = audioInputDevices.find(d => d.deviceId === selectedMicInput);
         soundEngine.toggleMicPassthrough(
           isMicPassthrough,
           selectedMicInput,
-          micObj?.label || ''
+          micObj?.label || '',
+          true
         );
       }
     }, 120);
     return () => clearTimeout(timer);
   }, [selectedMicInput, isMicPassthrough, audioInputDevices]);
 
-  // Request mic permission on start to reveal real hardware labels
+  // Request mic permission on start to reveal real hardware labels & bind physical mic
+  // Fait par zioti
   useEffect(() => {
     const scanDevices = async () => {
       try {
@@ -301,32 +304,37 @@ export default function App() {
           setAudioDevices(outputs);
           setAudioInputDevices(inputs);
 
-          // Helper: identify virtual loopback devices to prevent feedback loops
+          // Helper: identify virtual loopback devices to prevent feedback loops and silent routing
           const isVirtualDevice = (lbl) => {
             const s = (lbl || '').toLowerCase();
             return s.includes('cable') || s.includes('vb-audio') || s.includes('voicemeeter') || 
-                   s.includes('virtual') || s.includes('stereo mix') || s.includes('mixage');
+                   s.includes('virtual') || s.includes('stereo mix') || s.includes('mixage') ||
+                   s.includes('voicemod');
           };
 
-          // Find Default Microphone (only if no mic preference was saved)
+          // Find Real Physical Microphone (e.g. Nor-Tec, USB, Realtek, Headset)
           const savedMic = localStorage.getItem('freepad_selected_mic');
-          if (!savedMic && inputs.length > 0) {
-            // NEVER auto-select a virtual cable as mic input (prevents infinite loop)!
-            const realMic = inputs.find(d => !isVirtualDevice(d.label) && d.deviceId !== 'default') ||
-                            inputs.find(d => !isVirtualDevice(d.label)) ||
-                            null;
-            if (realMic) {
-              setSelectedMicInput(realMic.deviceId);
-              if (injectionMode === 'virtual') {
-                soundEngine.toggleMicPassthrough(isMicPassthrough, realMic.deviceId, realMic.label);
-              }
-            } else {
-              setSelectedMicInput('none');
-              soundEngine.toggleMicPassthrough(false);
-            }
+          const currentMicObj = inputs.find(d => d.deviceId === savedMic);
+          
+          const physicalMics = inputs.filter(d => !isVirtualDevice(d.label) && d.deviceId !== 'default' && d.deviceId !== 'communications');
+          const fallbackMics = inputs.filter(d => !isVirtualDevice(d.label));
+          const bestRealMic = physicalMics[0] || fallbackMics[0] || inputs.find(d => d.deviceId !== 'default') || inputs[0] || null;
+
+          const needsAutoSelect = !savedMic || 
+                                  savedMic === 'default' || 
+                                  !currentMicObj || 
+                                  isVirtualDevice(currentMicObj.label);
+
+          if (needsAutoSelect && bestRealMic) {
+            console.log("[FreePad v1.3.3] Auto-selected physical microphone:", bestRealMic.label);
+            setSelectedMicInput(bestRealMic.deviceId);
+            localStorage.setItem('freepad_selected_mic', bestRealMic.deviceId);
+            soundEngine.toggleMicPassthrough(isMicPassthrough, bestRealMic.deviceId, bestRealMic.label, true);
+          } else if (currentMicObj) {
+            soundEngine.toggleMicPassthrough(isMicPassthrough, currentMicObj.deviceId, currentMicObj.label, false);
           }
 
-          // Find dedicated Virtual Audio Cable (VB-Cable, FreePad, Voicemod)
+          // Find dedicated Virtual Audio Cable (VB-Cable, FreePad)
           const savedBroadcast = localStorage.getItem('freepad_broadcast_output');
           if (!savedBroadcast || savedBroadcast === 'default') {
             const virtualOut = outputs.find(d => {

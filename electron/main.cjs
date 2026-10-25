@@ -23,6 +23,7 @@ app.commandLine.appendSwitch('allow-file-access-from-files');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('enable-features', 'AudioServiceOutOfProcess');
+app.commandLine.appendSwitch('disable-features', 'AudioServiceSandbox');
 
 let mainWindow = null;
 

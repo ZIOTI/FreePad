@@ -38,25 +38,27 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Détection Matérielle Directe & Autoplay Déverrouillé"
-BODY = f"""# 🎉 FreePad {TAG} — Détection Matérielle Directe & Autoplay Déverrouillé
+RELEASE_NAME = f"FreePad {TAG} — Détection Universelle Tout Micro USB & Calibrage Acoustique dB"
+BODY = f"""# 🎉 FreePad {TAG} — Détection Universelle Tout Micro USB & Calibrage Acoustique dB
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.2 ?
+### 🚀 Quoi de neuf dans la v1.3.3 ?
 
-#### 1. 🎤 Lecture Matérielle Directe (MediaStreamTrackProcessor)
-* ⚡ **Accès direct au signal physique :** Intégration de `MediaStreamTrackProcessor` qui lit directement les trames PCM physiques depuis le flux Windows de ton micro (Nor-Tec, Rode, Blue Yeti...). Plus aucune dépendance au moteur WebAudio ni à l'Autoplay Policy de Chromium !
-* 📈 **Décroissance acoustique fluide :** La jauge s'anime en direct et redescend de manière naturelle lorsque tu arrêtes de parler.
+#### 1. 🎙️ Auto-Détection Intelligente du Vrai Micro Physique
+* 🎯 **Élimination automatique des faux périphériques :** FreePad analyse désormais la liste de tes périphériques d'entrée au démarrage et filtre automatiquement les câbles virtuels muets (comme Voicemod, VB-Cable ou Mixage Stéréo) qui empêchaient la voix d'être captée sur les PC de tes potes !
+* 🔌 **Liaison directe au micro USB :** Que tu utilises un micro streaming USB (Nor-Tec, Rode, Blue Yeti, Fifine, HyperX) ou une prise casque Realtek, FreePad le détecte et le sélectionne automatiquement dès le lancement.
+* 🎯 **Bouton 1-Clic "Détecter mon vrai micro" :** Ajouté dans les Paramètres pour re-scanner et basculer instantanément sur ton micro physique en cas de branchement à chaud.
 
-#### 2. ⚡ Déverrouillage Autoplay & Permissions Electron
-* 🔓 **Zéro Blocage Navigateur :** Ajout des commutateurs Chromium `--autoplay-policy=no-user-gesture-required` et `--use-fake-ui-for-media-stream` dans Electron pour éliminer toute suspension de l'audio par Windows.
-* 🖱️ **Réveil Global d'Écoute :** Détection automatique du premier clic ou touche pour garantir que le moteur audio ne reste jamais en veille.
+#### 2. 📊 Calibrage Acoustique Logarithmique en Décibels (dBFS)
+* 👂 **Sensibilité voix humaine naturelle :** Remplacement de l'ancien calcul linéaire par une courbe logarithmique en décibels (-52 dBFS à -8 dBFS) identique à celle de Discord et des tables de mixage pros.
+* 🗣️ **Détection dès le premier mot :** Fini le faux statut "Silence" ! Même un chuchotement ou une voix à 20-30 cm du micro USB fait réagir la jauge verte en direct de 20% à 70%.
 
-#### 3. 🔄 Bouton "Réveiller le micro" dans les Paramètres
-* ⚡ **Test & Diagnostic 1-Clic :** Ajout d'un bouton dédié à côté du choix du micro pour relancer instantanément la capture en cas de mise en veille d'un périphérique USB.
+#### 3. 🛡️ Déverrouillage Sandbox Audio Windows & Réveil Forcé
+* ⚡ **Suppression du blocage Sandbox :** Ajout du commutateur Chromium `--disable-features=AudioServiceSandbox` pour que les pilotes audio Windows USB tiers puissent envoyer leur flux sans restriction de sécurité.
+* 🔄 **Bouton "Réveiller le micro" renforcé :** Force une réinitialisation complète du flux matériel WASAPI en mémoire vive.
 
 ---
 

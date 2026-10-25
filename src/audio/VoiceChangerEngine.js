@@ -554,10 +554,10 @@ class VoiceChangerEngine {
     this.analyserNode.smoothingTimeConstant = 0.5;
     this.outputNode.connect(this.analyserNode);
 
-    // Connect to ctx.destination via silent gain to guarantee graph pulling
+    // Connect to ctx.destination via near-silent gain (-100 dBFS) to guarantee graph pulling without Chromium Blink silence pruning
     if (!this.silentPullGain) {
       this.silentPullGain = this.ctx.createGain();
-      this.silentPullGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+      this.silentPullGain.gain.setValueAtTime(0.00001, this.ctx.currentTime);
       this.silentPullGain.connect(this.ctx.destination);
     }
     this.analyserNode.connect(this.silentPullGain);
@@ -597,7 +597,8 @@ class VoiceChangerEngine {
     }
   }
 
-  // Live VU-Meter (0.0 to 1.0)
+  // Live VU-Meter (0.0 to 1.0) with decibel logarithmic speech curve
+  // Fait par zioti
   getAudioLevel() {
     if (!this.analyserNode) return 0;
     if (typeof this.analyserNode.getFloatTimeDomainData === 'function') {
@@ -612,15 +613,19 @@ class VoiceChangerEngine {
         sumSquares += val * val;
       }
       const rms = Math.sqrt(sumSquares / timeData.length);
-      const level = Math.max(rms * 4.5, peak * 1.8);
-      return Math.min(1.0, Math.max(0, level));
+      const effectiveAmp = Math.max(peak, rms * 1.6);
+      if (effectiveAmp < 0.0012) return 0;
+      const db = 20 * Math.log10(effectiveAmp);
+      const scaled = (db + 52) / 44;
+      const clamped = Math.max(0, Math.min(1.0, scaled));
+      return Math.min(1.0, Math.max(0, Math.pow(clamped, 0.9)));
     }
     const array = new Uint8Array(this.analyserNode.frequencyBinCount);
     this.analyserNode.getByteFrequencyData(array);
     let sum = 0;
     const bins = Math.min(array.length, 8);
     for (let i = 0; i < bins; i++) sum += array[i];
-    return Math.min(1.0, sum / (bins * 128));
+    return Math.min(1.0, sum / (bins * 90));
   }
 
   connectMicSource(sourceNode) {

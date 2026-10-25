@@ -253,12 +253,24 @@ class SoundEngine {
     }
   }
 
-  async toggleMicPassthrough(enabled, inputDeviceId = null, inputDeviceLabel = '') {
+  // Acoustic speech level formula: Decibel logarithmic scaling calibrated for Windows USB/Headset mics
+  // Fait par zioti
+  _calcAcousticLevel(peak, rms) {
+    const effectiveAmp = Math.max(peak, (rms || 0) * 1.6);
+    if (effectiveAmp < 0.0012) return 0; // noise floor / silence
+    const db = 20 * Math.log10(effectiveAmp); // -100 to 0 dBFS
+    // Map [-52 dBFS, -8 dBFS] smoothly to [0.0, 1.0]
+    const scaled = (db + 52) / 44;
+    const clamped = Math.max(0, Math.min(1.0, scaled));
+    return Math.min(1.0, Math.max(0, Math.pow(clamped, 0.9)));
+  }
+
+  async toggleMicPassthrough(enabled, inputDeviceId = null, inputDeviceLabel = '', forceRestart = false) {
     // Prevent concurrent mic toggle collisions (Windows WASAPI mutex)
     if (this._togglingMicPromise) {
       try { await this._togglingMicPromise; } catch (e) {}
     }
-    this._togglingMicPromise = this._doToggleMicPassthrough(enabled, inputDeviceId, inputDeviceLabel);
+    this._togglingMicPromise = this._doToggleMicPassthrough(enabled, inputDeviceId, inputDeviceLabel, forceRestart);
     try {
       return await this._togglingMicPromise;
     } finally {
@@ -266,7 +278,7 @@ class SoundEngine {
     }
   }
 
-  async _doToggleMicPassthrough(enabled, inputDeviceId = null, inputDeviceLabel = '') {
+  async _doToggleMicPassthrough(enabled, inputDeviceId = null, inputDeviceLabel = '', forceRestart = false) {
     if (!enabled || !inputDeviceId || inputDeviceId === 'none') {
       this.isMicPassthroughEnabled = false;
       this.stopRealMic();
@@ -274,13 +286,13 @@ class SoundEngine {
     }
 
     // ANTI-FEEDBACK LOOP GUARD:
-    // Never allow a virtual device (CABLE Output, Stereo Mix, Voicemeeter) to loop back into the broadcast bus!
+    // Never allow a virtual device (CABLE Output, Stereo Mix, Voicemeeter, Voicemod) to loop back into the broadcast bus!
     const lbl = (inputDeviceLabel || '').toLowerCase();
     const isVirtual = lbl.includes('cable') || lbl.includes('vb-audio') || lbl.includes('voicemeeter') || 
                       lbl.includes('virtual') || lbl.includes('stereo mix') || lbl.includes('mixage') || 
-                      lbl.includes('what u hear');
+                      lbl.includes('what u hear') || lbl.includes('voicemod');
     if (isVirtual) {
-      console.warn("Anti-Feedback Loop Guard: Blocked virtual cable from being fed into broadcast output:", inputDeviceLabel);
+      console.warn("Anti-Feedback Loop Guard: Blocked virtual loopback device from being fed into broadcast output:", inputDeviceLabel);
       this.isMicPassthroughEnabled = false;
       this.stopRealMic();
       return { blocked: true, reason: 'feedback_loop_prevention' };
@@ -297,8 +309,8 @@ class SoundEngine {
         await this.broadcastCtx.resume();
       }
 
-      // If already connected to this device and active, do not recreate stream
-      if (this.realMicStream && this.realMicStream.active && 
+      // If already connected to this device and active, do not recreate stream (unless forceRestart is true)
+      if (!forceRestart && this.realMicStream && this.realMicStream.active && 
           (this.realMicDeviceId === inputDeviceId || (!inputDeviceId && this.realMicDeviceId === 'default'))) {
         return;
       }
@@ -381,10 +393,10 @@ class SoundEngine {
 
       // Dedicated ScriptProcessor for direct 100fps raw PCM acoustic measurement
       if (this._trackReader) {
-      try { this._trackReader.cancel(); } catch (e) {}
-      this._trackReader = null;
-    }
-    if (this.micMeterNode) {
+        try { this._trackReader.cancel(); } catch (e) {}
+        this._trackReader = null;
+      }
+      if (this.micMeterNode) {
         try { this.micMeterNode.disconnect(); } catch (e) {}
       }
       this.micMeterNode = this.ctx.createScriptProcessor(512, 1, 1);
@@ -400,9 +412,12 @@ class SoundEngine {
           sumSquares += val * val;
         }
         const rms = Math.sqrt(sumSquares / input.length);
-        // Boost real voice range dynamically (0.2 to 0.8)
-        const rawLevel = Math.max(rms * 5.0, peak * 2.2);
-        this._lastMicLevel = Math.min(1.0, Math.max(0, rawLevel));
+        const lvl = this._calcAcousticLevel(peak, rms);
+        if (lvl > 0.005) {
+          this._lastMicLevel = lvl;
+        } else {
+          this._lastMicLevel = Math.max(0, (this._lastMicLevel || 0) * 0.88);
+        }
       };
       this.realMicSourceNode.connect(this.micMeterNode);
       this.micMeterNode.connect(this.micSilentPullGain);
@@ -415,30 +430,35 @@ class SoundEngine {
             try { this._trackReader.cancel(); } catch (e) {}
             this._trackReader = null;
           }
-          const processor = new window.MediaStreamTrackProcessor({ track: audioTrack });
-          const reader = processor.readable.getReader();
+          this._trackProcessor = new window.MediaStreamTrackProcessor({ track: audioTrack });
+          const reader = this._trackProcessor.readable.getReader();
           this._trackReader = reader;
           const readTrack = async () => {
             try {
               while (this.realMicStream && audioTrack.readyState === 'live') {
                 const { done, value } = await reader.read();
                 if (done || !value) break;
-                const n = value.numberOfFrames;
-                if (n > 0) {
-                  const pcm = new Float32Array(n);
-                  value.copyTo(pcm, { planeIndex: 0, format: 'f32-planar' });
-                  let sumSq = 0;
-                  let pk = 0;
-                  for (let i = 0; i < pcm.length; i++) {
-                    const a = Math.abs(pcm[i]);
-                    if (a > pk) pk = a;
-                    sumSq += a * a;
+                try {
+                  const n = value.numberOfFrames;
+                  if (n > 0) {
+                    const pcm = new Float32Array(n);
+                    value.copyTo(pcm, { planeIndex: 0, format: 'f32-planar' });
+                    let sumSq = 0;
+                    let pk = 0;
+                    for (let i = 0; i < pcm.length; i++) {
+                      const a = Math.abs(pcm[i]);
+                      if (a > pk) pk = a;
+                      sumSq += a * a;
+                    }
+                    const r = Math.sqrt(sumSq / pcm.length);
+                    const lvl = this._calcAcousticLevel(pk, r);
+                    this._lastMicLevel = lvl;
                   }
-                  const r = Math.sqrt(sumSq / pcm.length);
-                  const lvl = Math.max(r * 5.0, pk * 2.2);
-                  this._lastMicLevel = Math.min(1.0, Math.max(0, lvl));
+                } catch (eFrame) {
+                  // Fallback for non-planar frame copy
+                } finally {
+                  value.close();
                 }
-                value.close();
               }
             } catch (err) {
               // Reader cancelled or stopped
@@ -971,16 +991,21 @@ class SoundEngine {
   }
 
   getMicLevel() {
-    // 1. Direct hardware PCM meter node level
-    if (this._lastMicLevel !== undefined) {
+    // Ensure AudioContext is running if suspended
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+
+    // 1. Direct hardware PCM meter node level (calibrated via _calcAcousticLevel)
+    if (this._lastMicLevel !== undefined && this._lastMicLevel > 0.005) {
       const lvl = this._lastMicLevel;
-      this._lastMicLevel = Math.max(0, this._lastMicLevel * 0.92);
-      if (lvl > 0.005) return lvl;
+      this._lastMicLevel = Math.max(0, this._lastMicLevel * 0.94);
+      return lvl;
     }
 
     if (!this.micAnalyser) return 0;
     
-    // 2. Time Domain RMS + Peak for true acoustic speech measurement
+    // 2. Time Domain RMS + Peak for true acoustic speech measurement (Decibel logarithmic curve)
     if (typeof this.micAnalyser.getFloatTimeDomainData === 'function') {
       const timeData = new Float32Array(this.micAnalyser.fftSize);
       this.micAnalyser.getFloatTimeDomainData(timeData);
@@ -993,9 +1018,7 @@ class SoundEngine {
         sumSquares += val * val;
       }
       const rms = Math.sqrt(sumSquares / timeData.length);
-      // Boost speech range dynamically: normal speech reaches 0.25 - 0.75
-      const level = Math.max(rms * 5.0, peak * 2.0);
-      return Math.min(1.0, Math.max(0, level));
+      return this._calcAcousticLevel(peak, rms);
     }
 
     // Fallback: Byte frequency focusing on speech bins
@@ -1006,7 +1029,7 @@ class SoundEngine {
     for (let i = 0; i < voiceBins; i++) {
       voiceSum += data[i];
     }
-    return Math.min(1.0, voiceSum / (voiceBins * 120));
+    return Math.min(1.0, voiceSum / (voiceBins * 90));
   }
 
   setNormalization(enabled) {

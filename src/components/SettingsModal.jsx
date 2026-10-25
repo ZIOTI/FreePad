@@ -435,21 +435,54 @@ export default function SettingsModal({
                 <button
                   type="button"
                   onClick={async () => {
+                    try {
+                      await soundEngine.init();
+                      if (soundEngine.ctx && soundEngine.ctx.state === 'suspended') {
+                        await soundEngine.ctx.resume();
+                      }
+                      const isVirtual = (lbl) => {
+                        const s = (lbl || '').toLowerCase();
+                        return s.includes('cable') || s.includes('vb-audio') || s.includes('voicemeeter') || 
+                               s.includes('virtual') || s.includes('stereo mix') || s.includes('mixage') ||
+                               s.includes('voicemod');
+                      };
+                      const physicalMics = audioInputDevices.filter(d => !isVirtual(d.label) && d.deviceId !== 'default' && d.deviceId !== 'communications');
+                      const fallbackMics = audioInputDevices.filter(d => !isVirtual(d.label));
+                      const best = physicalMics[0] || fallbackMics[0] || audioInputDevices[0];
+                      if (best) {
+                        setSelectedMicInput(best.deviceId);
+                        localStorage.setItem('freepad_selected_mic', best.deviceId);
+                        await soundEngine.toggleMicPassthrough(true, best.deviceId, best.label, true);
+                        setFeedbackMsg(`🎙️ Micro physique détecté : ${best.label}`);
+                      }
+                    } catch (e) {
+                      console.warn("Auto-detect error:", e);
+                    }
+                  }}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 font-bold transition-all flex items-center gap-1 active:scale-95"
+                  title="Sélectionne automatiquement ton vrai micro physique (USB / Casque) en éliminant les câbles virtuels muets"
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-400" />
+                  <span>🎯 Détecter mon vrai micro</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
                     await soundEngine.init();
                     if (soundEngine.ctx && soundEngine.ctx.state === 'suspended') {
                       await soundEngine.ctx.resume();
                     }
                     const micObj = audioInputDevices.find(d => d.deviceId === selectedMicInput);
-                    await soundEngine.toggleMicPassthrough(true, selectedMicInput, micObj?.label || '');
+                    await soundEngine.toggleMicPassthrough(true, selectedMicInput, micObj?.label || '', true);
+                    setFeedbackMsg("Flux micro réveillé et reconnecté !");
                   }}
-                  className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 font-bold transition-all flex items-center gap-1"
+                  className="text-[10px] px-2 py-1 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 font-bold transition-all flex items-center gap-1 active:scale-95"
+                  title="Force la réinitialisation matérielle du flux audio Windows"
                 >
                   <RefreshCw className="w-3 h-3" />
                   <span>Réveiller le micro</span>
                 </button>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
-                  HARDWARE
-                </span>
               </div>
             </div>
 
@@ -461,23 +494,31 @@ export default function SettingsModal({
                 currentMic.label.toLowerCase().includes('voicemeeter') ||
                 currentMic.label.toLowerCase().includes('virtual') ||
                 currentMic.label.toLowerCase().includes('stereo mix') ||
-                currentMic.label.toLowerCase().includes('mixage')
+                currentMic.label.toLowerCase().includes('mixage') ||
+                currentMic.label.toLowerCase().includes('voicemod')
               );
               return isVirtual ? (
                 <div className="mb-3 p-3 rounded-xl bg-rose-950/90 border border-rose-500 text-xs text-rose-200 flex items-start gap-2.5 shadow-lg shadow-rose-950/60 animate-pulse">
                   <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold text-rose-100 text-xs">⚠️ ATTENTION : Boucle d'écho détectée !</p>
+                    <p className="font-bold text-rose-100 text-xs">⚠️ ATTENTION : Périphérique virtuel sélectionné !</p>
                     <p className="text-[11px] text-rose-300 mt-0.5 leading-relaxed">
-                      Tu as sélectionné <strong>"{currentMic.label}"</strong> comme micro. C'est exactement cela qui fait répéter le son <strong>5 à 6 fois en boucle</strong> dans ton appel Discord !
+                      Tu as sélectionné <strong>"{currentMic.label}"</strong> comme micro d'entrée. Aucun son ne peut être capté depuis ce câble.
                     </p>
                     <p className="text-[11px] text-white font-semibold mt-1">
-                      👉 Choisis ton <u>vrai microphone physique</u> (casque, USB) ou choisis <u>"🔇 Aucun microphone"</u> !
+                      👉 Clique sur <strong>"🎯 Détecter mon vrai micro"</strong> ci-dessus pour basculer sur ton vrai micro USB ou casque !
                     </p>
                   </div>
                 </div>
               ) : null;
             })()}
+
+            <div className="flex items-center justify-between text-[11px] mb-1.5 px-0.5">
+              <span className="text-slate-400">Microphone sélectionné :</span>
+              <span className="font-semibold text-cyan-300 truncate max-w-[320px]">
+                {audioInputDevices.find(d => d.deviceId === selectedMicInput)?.label || 'Sélectionner un micro...'}
+              </span>
+            </div>
 
             <select
               value={selectedMicInput}
@@ -490,7 +531,7 @@ export default function SettingsModal({
               <option value="none">🔇 Aucun microphone (Ne pas diffuser ma voix - Sons uniquement)</option>
               {audioInputDevices.map((d) => {
                 const lbl = (d.label || '').toLowerCase();
-                const isVirt = lbl.includes('cable') || lbl.includes('vb-audio') || lbl.includes('virtual') || lbl.includes('stereo mix') || lbl.includes('mixage');
+                const isVirt = lbl.includes('cable') || lbl.includes('vb-audio') || lbl.includes('virtual') || lbl.includes('stereo mix') || lbl.includes('mixage') || lbl.includes('voicemod');
                 return (
                   <option key={d.deviceId} value={d.deviceId}>
                     {isVirt ? `⚠️ ${d.label || d.deviceId} (CÂBLE VIRTUEL - NE PAS SÉLECTIONNER)` : `🎙️ ${d.label || `Microphone (${d.deviceId.slice(0, 8)}...)`} (Recommandé)`}
@@ -503,25 +544,33 @@ export default function SettingsModal({
             <div className="space-y-1.5 bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${micLevel > 0.015 ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`} />
-                  Test voix en direct :
+                  <span className={`w-2.5 h-2.5 rounded-full ${micLevel > 0.02 ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`} />
+                  <span className="text-slate-300 font-medium">Test voix en direct :</span>
                 </span>
-                <span className="font-mono text-[10px] text-cyan-300 font-bold">
-                  {micLevel > 0.015 ? `Signal Micro Détecté 🎤 (${Math.round(micLevel * 100)}%)` : "Silence"}
+                <span className={`font-mono text-[11px] font-bold ${micLevel > 0.02 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                  {micLevel > 0.02 ? `Signal Voix Détecté 🎤 (${Math.round(micLevel * 100)}%)` : "Silence (0%)"}
                 </span>
               </div>
-              <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden p-0.5">
+              <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden p-0.5">
                 <div
-                  className="h-full rounded-full transition-all duration-75 bg-gradient-to-r from-cyan-400 via-indigo-500 to-pink-500"
-                  style={{ width: `${Math.min(100, Math.max(4, Math.round(micLevel * 100)))}%` }}
+                  className="h-full rounded-full transition-all duration-75 bg-gradient-to-r from-cyan-400 via-emerald-400 to-indigo-500"
+                  style={{ width: `${Math.min(100, Math.max(3, Math.round(micLevel * 100)))}%` }}
                 />
               </div>
             </div>
 
-            {/* Micro troubleshooting tip */}
-            <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
-              💡 <strong>Astuce :</strong> Si la jauge ne bouge pas quand tu parles, clique sur <strong>"Réveiller le micro"</strong> ci-dessus, et vérifie que ton micro n'est pas coupé (bouton Mute physique ou Paramètres Windows &gt; Confidentialité &gt; Microphone).
-            </p>
+            {/* Diagnostic Alert Helper */}
+            <div className="mt-2.5 p-2.5 rounded-lg bg-slate-950/90 border border-slate-800/80 text-[11px] text-slate-300 space-y-1">
+              <p className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span>Si la jauge reste sur Silence quand tu parles :</span>
+              </p>
+              <ul className="text-slate-400 pl-4 list-disc space-y-0.5 text-[10px]">
+                <li>Clique sur le bouton vert <strong>"🎯 Détecter mon vrai micro"</strong> ci-dessus pour sélectionner ton micro physique USB ou casque.</li>
+                <li>Vérifie que le bouton Mute physique sur ton micro n'est pas activé.</li>
+                <li>Vérifie Windows : <strong>Paramètres &gt; Confidentialité &gt; Microphone</strong> &rarr; vérifie que <em>"Autoriser les applications de bureau à accéder à votre microphone"</em> est activé.</li>
+              </ul>
+            </div>
 
             {/* In Virtual Mode: Volume of user's voice into virtual cable */}
             {injectionMode === 'virtual' && selectedMicInput !== 'none' && (
