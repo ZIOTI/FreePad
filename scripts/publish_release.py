@@ -38,25 +38,25 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Injection Directe Micro Physique (APO) & Zéro Câble"
-BODY = f"""# 🎉 FreePad {TAG} — Injection Directe dans le Micro Physique (APO) & Zéro Câble Requis
+RELEASE_NAME = f"FreePad {TAG} — Correctifs Stabilité Micro & Double Playback"
+BODY = f"""# 🎉 FreePad {TAG} — Correctifs Stabilité Micro & Double Playback
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.2.6 ?
+### 🚀 Quoi de neuf dans la v1.2.7 ?
 
-#### 1. ⚡ Injection Directe dans le Micro Physique (APO Bridge)
-* 🎙️ **Directement dans ton vrai micro USB :** Plus besoin de changer de périphérique dans Discord ! Le Voice Changer envoie désormais ta voix modifiée directement dans le flux matériel Windows de ton micro physique (WOODBRASS UM1, Logitech PRO X, etc.) via le pilote système APO à haute performance.
-* 🛑 **Mute automatique de la voix brute :** Quand un effet (Autotune Travis Scott, Robot Daft Punk, Démon, etc.) est actif, le pilote coupe ta voix normale pour ne faire passer que la voix transformée, et rétablit instantanément ta voix naturelle dès que tu relâches ou désactives le preset.
-* ⚡ **Streaming Ultra Faible Latence :** Échange mémoire natif IPC vers le sous-système audio Windows sans aucun délai perceptible.
+#### 1. 🛡️ Suppression Intégrale du Larsen et Bruit Aigu (Sécurité Casque)
+* 🎧 **Monitoring désactivé par défaut :** Finie la boucle de Larsen désagréable au choix du micro ! Le retour casque est désormais coupé par défaut pour protéger tes oreilles.
+* 🔇 **Isolation du pont APO :** Le pont d'injection matérielle est isolé dans un buffer nul et ne fuit plus jamais dans les écouteurs.
 
-#### 2. 🎛️ Double Architecture : Micro Physique Direct + Câble Virtuel
-* 🔌 **Tu as le choix :**
-  1. **Mode Direct Micro (Par défaut avec pilote APO) :** Zéro câble requis, Discord reste sur ton micro habituel !
-  2. **Mode Câble Virtuel :** Toujours disponible pour ceux qui préfèrent router via Steam Streaming Microphone ou Voicemod.
-* 🛠️ **Installateur en 1 clic intégré :** Un bouton d'activation du pilote direct intégré directement dans la fenêtre du Voice Changer.
+#### 2. 🎙️ Détection Fiable du Microphone & VU-Mètre Actif
+* 🟢 **Capture micro continue :** Correction du blocage WASAPI en mode normal ; le micro physique est détecté instantanément et la voix reste entendue sans coupure.
+* 📊 **VU-mètre temps réel :** Combine la détection matérielle et les effets pour afficher avec précision le niveau de la voix.
+
+#### 3. 🎯 Élimination des Sons Joués en Double (Soundboard)
+* ⚡ **Jetons de session asynchrones (playSessionId) :** Lors de clics rapides ou déclenchements de raccourcis, les requêtes concurrentes sont invalidées proprement pour garantir qu'aucun son ne se superpose en écho ou en double.
 
 ---
 

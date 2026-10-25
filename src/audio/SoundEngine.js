@@ -45,6 +45,7 @@ class SoundEngine {
     this.isLooping = false;
     this.isApoMode = true; // Direct Hardware APO Injection
     this.isSoundpadMode = true; // Legacy alias
+    this.playSessionId = 0; // Concurrency guard to eliminate double playback
 
     // Callbacks
     this.onStateChange = null;
@@ -204,27 +205,6 @@ class SoundEngine {
         console.warn("ensureBroadcastBridge bridge notice:", e);
       }
     }
-
-    // Direct HTMLAudioElement sink bridge for rock-solid Windows audio output
-    try {
-      if (!this.broadcastAudioElement && typeof Audio !== 'undefined') {
-        this.broadcastAudioElement = new Audio();
-        this.broadcastAudioElement.autoplay = true;
-        this.broadcastAudioElement.volume = 1.0;
-        this.broadcastAudioElement.muted = false;
-      }
-      if (this.broadcastAudioElement && this.micBroadcastBridgeDest && this.micBroadcastBridgeDest.stream) {
-        if (this.broadcastAudioElement.srcObject !== this.micBroadcastBridgeDest.stream) {
-          this.broadcastAudioElement.srcObject = this.micBroadcastBridgeDest.stream;
-        }
-        if (typeof this.broadcastAudioElement.setSinkId === 'function') {
-          this.broadcastAudioElement.setSinkId(this.broadcastDeviceId).catch(() => {});
-        }
-        this.broadcastAudioElement.play().catch(() => {});
-      }
-    } catch (e) {
-      console.warn("broadcastAudioElement notice:", e);
-    }
   }
 
   updateGraphRouting() {
@@ -301,6 +281,11 @@ class SoundEngine {
         await this.broadcastCtx.resume();
       }
 
+      // If already connected to this device and active, do not recreate stream
+      if (this.realMicStream && this.realMicDeviceId === inputDeviceId && this.realMicStream.active) {
+        return;
+      }
+
       // Stop previous mic stream cleanly
       this.stopRealMic();
 
@@ -311,8 +296,7 @@ class SoundEngine {
           deviceId: hasSpecificId ? { exact: inputDeviceId } : undefined,
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 2
+          autoGainControl: false
         }
       };
 
@@ -362,12 +346,6 @@ class SoundEngine {
     if (this.micBroadcastBridgeDest) {
       try { this.micBroadcastBridgeDest.disconnect(); } catch (e) {}
       this.micBroadcastBridgeDest = null;
-    }
-    if (this.broadcastAudioElement) {
-      try {
-        this.broadcastAudioElement.pause();
-        this.broadcastAudioElement.srcObject = null;
-      } catch (e) {}
     }
     voiceChangerEngine.stopApoVoiceStream();
     voiceChangerEngine.cleanupCurrentGraph();
@@ -531,19 +509,26 @@ class SoundEngine {
   }
 
   async play(sound, startOffset = 0) {
+    const sessionId = ++this.playSessionId;
     await this.init();
     if (this.ctx.state === 'suspended') await this.ctx.resume();
     if (this.broadcastCtx && this.broadcastCtx.state === 'suspended') await this.broadcastCtx.resume();
 
-    // Stop local playback nodes without sending STOP to APO pipe
+    // Stop local playback nodes and previous APO pipe
     this.currentSources.forEach(s => {
       try { s.stop(); } catch (e) {}
     });
     this.currentSources = [];
     cancelAnimationFrame(this.rafId);
+    if (window.electronAPI && typeof window.electronAPI.stopApoPcm === 'function') {
+      window.electronAPI.stopApoPcm().catch(() => {});
+    }
 
     try {
       const buffer = await this.loadAudio(sound.url);
+      if (sessionId !== this.playSessionId) {
+        return false;
+      }
       this.duration = buffer.duration;
       this.currentSoundId = sound.id;
       this.currentSources = [];
@@ -562,7 +547,7 @@ class SoundEngine {
       localGain.connect(this.headphonesGain);
 
       localSource.onended = () => {
-        if (this.currentSources.includes(localSource)) {
+        if (sessionId === this.playSessionId && this.currentSources.includes(localSource)) {
           this.isPlaying = false;
           this.isPaused = false;
           this.currentSoundId = null;
@@ -580,7 +565,7 @@ class SoundEngine {
         // Direct Hardware APO Injection: injects raw PCM directly into physical mic driver
         if (window.electronAPI && typeof window.electronAPI.playApoPcm === 'function') {
           this.get48kMonoPcm(buffer, vol, this.loudnessBoost, offset).then((pcmArray) => {
-            if (pcmArray && this.isPlaying && this.currentSoundId === sound.id) {
+            if (sessionId === this.playSessionId && pcmArray && this.isPlaying && this.currentSoundId === sound.id) {
               window.electronAPI.playApoPcm({ pcmArray });
             }
           }).catch((err) => {
@@ -619,6 +604,7 @@ class SoundEngine {
   }
 
   async playAudioBuffer(buffer, id = 'instant-remix', volumeMultiplier = 1.0, isLooping = false) {
+    const sessionId = ++this.playSessionId;
     await this.init();
     if (this.ctx.state === 'suspended') await this.ctx.resume();
     if (this.broadcastCtx && this.broadcastCtx.state === 'suspended') await this.broadcastCtx.resume();
@@ -628,8 +614,12 @@ class SoundEngine {
     });
     this.currentSources = [];
     cancelAnimationFrame(this.rafId);
+    if (window.electronAPI && typeof window.electronAPI.stopApoPcm === 'function') {
+      window.electronAPI.stopApoPcm().catch(() => {});
+    }
 
     try {
+      if (sessionId !== this.playSessionId) return false;
       this.duration = buffer.duration;
       this.currentSoundId = id;
       this.currentSources = [];
@@ -647,7 +637,7 @@ class SoundEngine {
       localGain.connect(this.headphonesGain);
 
       localSource.onended = () => {
-        if (this.currentSources.includes(localSource)) {
+        if (sessionId === this.playSessionId && this.currentSources.includes(localSource)) {
           this.isPlaying = false;
           this.isPaused = false;
           this.currentSoundId = null;
@@ -664,7 +654,7 @@ class SoundEngine {
       if (this.isApoMode) {
         if (window.electronAPI && typeof window.electronAPI.playApoPcm === 'function') {
           this.get48kMonoPcm(buffer, vol, this.loudnessBoost, 0).then((pcmArray) => {
-            if (pcmArray && this.isPlaying && this.currentSoundId === id) {
+            if (sessionId === this.playSessionId && pcmArray && this.isPlaying && this.currentSoundId === id) {
               window.electronAPI.playApoPcm({ pcmArray });
             }
           }).catch((err) => {
@@ -702,6 +692,7 @@ class SoundEngine {
   }
 
   pause() {
+    this.playSessionId++;
     if (!this.isPlaying || this.isPaused) return;
 
     this.pauseOffset = this.ctx.currentTime - this.startTime;
@@ -727,6 +718,7 @@ class SoundEngine {
   }
 
   stop(notify = true) {
+    this.playSessionId++;
     this.currentSources.forEach(s => {
       try { s.stop(); } catch (e) {}
     });
@@ -795,10 +787,6 @@ class SoundEngine {
   setSoundpadMode(enabled) {
     this.isSoundpadMode = enabled;
     this.isApoMode = enabled;
-    if (enabled && this.isMicPassthroughEnabled) {
-      // Direct driver handles mic naturally; disable redundant passthrough to avoid echo
-      this.toggleMicPassthrough(false);
-    }
   }
 
   setRealMicVolume(val) {

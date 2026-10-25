@@ -32,7 +32,7 @@ export default function VoiceChangerModal({
   setBroadcastOutput
 }) {
   const [activePreset, setActivePreset] = useState(voiceChangerEngine.activePreset || 'none');
-  const [isMonitoring, setIsMonitoring] = useState(voiceChangerEngine.isMonitoringEnabled);
+  const [isMonitoring, setIsMonitoring] = useState(false);
   const [monitoringVol, setMonitoringVol] = useState(voiceChangerEngine.monitoringVolume);
   const [isPushToTalk, setIsPushToTalk] = useState(voiceChangerEngine.isPushToTalk);
   const [vuLevel, setVuLevel] = useState(0);
@@ -134,7 +134,7 @@ export default function VoiceChangerModal({
 
     // Live VU-Meter loop
     const updateVu = () => {
-      const lvl = voiceChangerEngine.getAudioLevel();
+      const lvl = Math.max(voiceChangerEngine.getAudioLevel(), soundEngine.getMicLevel());
       setVuLevel(Math.round(lvl * 100));
       animFrameRef.current = requestAnimationFrame(updateVu);
     };
@@ -168,16 +168,10 @@ export default function VoiceChangerModal({
     voiceChangerEngine.setPushToTalk(enabled);
   };
 
-  const handleMicDeviceChange = async (deviceId) => {
+  const handleMicDeviceChange = (deviceId) => {
     setSelectedMicId(deviceId);
     if (setSelectedMicInput) setSelectedMicInput(deviceId);
     localStorage.setItem('freepad_selected_mic', deviceId);
-    const chosen = (inputDevices || []).find(d => d.deviceId === deviceId);
-    await soundEngine.toggleMicPassthrough(
-      Boolean(deviceId && deviceId !== 'none'),
-      deviceId,
-      chosen?.label || ''
-    );
   };
 
   const handleBroadcastDeviceChange = (deviceId) => {
@@ -725,7 +719,7 @@ export default function VoiceChangerModal({
 
         {/* Footer info branding */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-          <span>FreePad Voice Changer Pro v1.2.6 • Injection Micro Directe (APO) • Zéro Câble Requis • Autotune &amp; Vocoder</span>
+          <span>FreePad Voice Changer Pro v1.2.7 • Injection Micro Directe (APO) • Zéro Câble Requis • Autotune &amp; Vocoder</span>
           <span className="text-indigo-400 font-medium">Fait par zioti</span>
         </div>
       </div>

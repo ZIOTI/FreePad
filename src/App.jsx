@@ -227,13 +227,7 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('freepad_injection_mode', injectionMode);
     soundEngine.setSoundpadMode(injectionMode === 'direct');
-    const micObj = audioInputDevices.find(d => d.deviceId === selectedMicInput);
-    soundEngine.toggleMicPassthrough(
-      Boolean(selectedMicInput && selectedMicInput !== 'none'),
-      selectedMicInput,
-      micObj?.label || ''
-    );
-  }, [injectionMode, audioInputDevices, selectedMicInput, isMicPassthrough]);
+  }, [injectionMode]);
 
   useEffect(() => {
     localStorage.setItem('freepad_loudness_boost', loudnessBoost.toString());
@@ -252,12 +246,17 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('freepad_selected_mic', selectedMicInput);
-    if (selectedMicInput === 'none') {
+    if (!selectedMicInput || selectedMicInput === 'none') {
       soundEngine.toggleMicPassthrough(false);
-    } else if (selectedMicInput) {
-      soundEngine.toggleMicPassthrough(isMicPassthrough, selectedMicInput);
+    } else {
+      const micObj = audioInputDevices.find(d => d.deviceId === selectedMicInput);
+      soundEngine.toggleMicPassthrough(
+        isMicPassthrough,
+        selectedMicInput,
+        micObj?.label || ''
+      );
     }
-  }, [selectedMicInput, isMicPassthrough]);
+  }, [selectedMicInput, isMicPassthrough, audioInputDevices]);
 
   // Request mic permission on start to reveal real hardware labels
   useEffect(() => {

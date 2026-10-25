@@ -436,7 +436,7 @@ class VoiceChangerEngine {
   constructor() {
     this.activePreset = 'none';
     this.lastActivePreset = 'autotune';
-    this.isMonitoringEnabled = true;
+    this.isMonitoringEnabled = false; // Safe default: off to prevent Larsen feedback
     this.monitoringVolume = 0.85;
     this.isPushToTalk = false;
     this.isMorphedActive = false;
@@ -444,6 +444,7 @@ class VoiceChangerEngine {
     // Audio context & nodes
     this.ctx = null;
     this.inputNode = null;
+    this.inputPreamp = null;
     this.outputNode = null;
     this.monitoringGain = null;
     this.analyserNode = null;
@@ -456,7 +457,7 @@ class VoiceChangerEngine {
     this.isApoStreaming = false;
     this.isApoAvailable = false;
     this.apoTapNode = null;
-    this.apoDummyGain = null;
+    this.apoDummyDest = null;
 
     this.onStateChange = null;
   }
@@ -471,11 +472,16 @@ class VoiceChangerEngine {
       } catch (e) {}
     }
 
+    if (!this.inputPreamp) {
+      this.inputPreamp = this.ctx.createGain();
+      this.inputPreamp.gain.setValueAtTime(1.0, this.ctx.currentTime);
+    }
+
     // Master Voice Changer Bus
     this.outputNode = this.ctx.createGain();
     this.outputNode.gain.setValueAtTime(1.0, this.ctx.currentTime);
 
-    // Monitoring Gain (Local Headphones Feedback)
+    // Monitoring Gain (Local Headphones Feedback - strictly 0 by default)
     this.monitoringGain = this.ctx.createGain();
     this.monitoringGain.gain.setValueAtTime(this.isMonitoringEnabled ? this.monitoringVolume : 0.0, this.ctx.currentTime);
     this.outputNode.connect(this.monitoringGain);
@@ -497,6 +503,9 @@ class VoiceChangerEngine {
       try {
         this.apoTapNode = this.ctx.createScriptProcessor(1024, 1, 1);
         this.apoTapNode.onaudioprocess = (e) => {
+          const out = e.outputBuffer.getChannelData(0);
+          out.fill(0); // Zero out output buffer: absolutely zero audio leaks to headphones
+
           if (!this.isApoStreaming || this.activePreset === 'none') return;
           const channelData = e.inputBuffer.getChannelData(0);
           const pcmBytes = new Uint8Array(channelData.buffer, channelData.byteOffset, channelData.byteLength);
@@ -505,10 +514,8 @@ class VoiceChangerEngine {
           }
         };
         this.outputNode.connect(this.apoTapNode);
-        this.apoDummyGain = this.ctx.createGain();
-        this.apoDummyGain.gain.setValueAtTime(0, this.ctx.currentTime);
-        this.apoTapNode.connect(this.apoDummyGain);
-        this.apoDummyGain.connect(this.ctx.destination);
+        this.apoDummyDest = this.ctx.createMediaStreamDestination();
+        this.apoTapNode.connect(this.apoDummyDest);
       } catch (e) {
         console.warn("APO tap node setup notice:", e);
       }
@@ -570,7 +577,13 @@ class VoiceChangerEngine {
   }
 
   connectMicSource(sourceNode) {
+    if (this.inputNode && this.inputNode !== sourceNode && this.inputPreamp) {
+      try { this.inputNode.disconnect(this.inputPreamp); } catch (e) {}
+    }
     this.inputNode = sourceNode;
+    if (this.inputNode && this.inputPreamp) {
+      try { this.inputNode.connect(this.inputPreamp); } catch (e) {}
+    }
     this.rebuildGraph();
   }
 
@@ -578,7 +591,7 @@ class VoiceChangerEngine {
     if (this.isApoStreaming) return;
     if (window.electronAPI && typeof window.electronAPI.startVoiceStream === 'function') {
       try {
-        const res = await window.electronAPI.startVoiceStream({ blockVoice: true });
+        const res = await window.electronAPI.startVoiceStream({ blockVoice: false });
         if (res && res.success) {
           this.isApoStreaming = true;
         }
@@ -775,21 +788,26 @@ class VoiceChangerEngine {
     });
     this.currentFxNodes = [];
 
-    if (this.inputNode) {
-      try { this.inputNode.disconnect(); } catch (e) {}
+    // Isolate inputPreamp so soundEngine.realMicSourceNode is never disconnected from micAnalyser
+    if (this.inputPreamp) {
+      try { this.inputPreamp.disconnect(); } catch (e) {}
     }
   }
 
   rebuildGraph() {
     if (!this.ctx || !this.inputNode || !this.outputNode) return;
+    if (this.inputPreamp) {
+      try { this.inputNode.connect(this.inputPreamp); } catch (e) {}
+    }
     this.cleanupCurrentGraph();
 
+    const source = this.inputPreamp || this.inputNode;
     const now = this.ctx.currentTime;
     const preset = this.activePreset;
 
     // 1. Natural Voice (Bypass)
     if (preset === 'none') {
-      this.inputNode.connect(this.outputNode);
+      source.connect(this.outputNode);
       return;
     }
 
@@ -816,7 +834,7 @@ class VoiceChangerEngine {
       highShelf.frequency.setValueAtTime(8000, now);
       highShelf.gain.setValueAtTime(4.0, now);
 
-      this.inputNode.connect(fxNode);
+      source.connect(fxNode);
       fxNode.connect(highShelf);
       highShelf.connect(this.outputNode);
       highShelf.connect(delay);
@@ -838,7 +856,7 @@ class VoiceChangerEngine {
       comp.threshold.setValueAtTime(-16, now);
       comp.ratio.setValueAtTime(6, now);
 
-      this.inputNode.connect(fxNode);
+      source.connect(fxNode);
       fxNode.connect(bandpass);
       bandpass.connect(comp);
       comp.connect(this.outputNode);
@@ -881,8 +899,8 @@ class VoiceChangerEngine {
       const master = this.ctx.createGain();
       master.gain.setValueAtTime(1.15, now);
 
-      this.inputNode.connect(demonPitch);
-      this.inputNode.connect(subOctave);
+      source.connect(demonPitch);
+      source.connect(subOctave);
 
       demonPitch.connect(subBoost);
       subGain.connect(subBoost);
@@ -922,7 +940,7 @@ class VoiceChangerEngine {
       comp.threshold.setValueAtTime(-14, now);
       comp.ratio.setValueAtTime(4, now);
 
-      this.inputNode.connect(highpass);
+      source.connect(highpass);
       highpass.connect(heliumPitch);
       heliumPitch.connect(presence);
       presence.connect(highShelf);
@@ -962,7 +980,7 @@ class VoiceChangerEngine {
       const master = this.ctx.createGain();
       master.gain.setValueAtTime(1.2, now);
 
-      this.inputNode.connect(hp);
+      source.connect(hp);
       hp.connect(lp);
       lp.connect(hornPeak);
       hornPeak.connect(diodeDist);
@@ -994,7 +1012,7 @@ class VoiceChangerEngine {
       comp.threshold.setValueAtTime(-18, now);
       comp.ratio.setValueAtTime(10, now);
 
-      this.inputNode.connect(hp);
+      source.connect(hp);
       hp.connect(lp);
       lp.connect(radioDist);
       radioDist.connect(comp);
