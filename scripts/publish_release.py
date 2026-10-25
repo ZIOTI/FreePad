@@ -38,31 +38,25 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Câble Audio Virtuel Dédié & 100% Indépendant"
-BODY = f"""# 🎉 FreePad {TAG} — Câble Audio Virtuel Dédié & 100% Indépendant
+RELEASE_NAME = f"FreePad {TAG} — Détection Vocale Instantanée & VU-Mètre Réactif"
+BODY = f"""# 🎉 FreePad {TAG} — Détection Vocale Instantanée & VU-Mètre Réactif
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.2.9 ?
+### 🚀 Quoi de neuf dans la v1.3.0 ?
 
-#### 1. ⚡ Câble Audio Virtuel Dédié Intégré en 1 Clic (Zéro Dépendance Steam)
-* 🔌 **Installateur Virtuel Embarqué :** FreePad inclut désormais directement le pilote virtuel officiel haute-fidélité (`VBCABLE_Setup_x64.exe`) certifié WHQL Microsoft. Plus aucun besoin d'installer Steam Streaming Microphone, Voicemod ou d'autres utilitaires externes.
-* 🚀 **Activation en 1 Clic :** Un simple clic dans la fenêtre du modulateur de voix installe et configure le périphérique en quelques secondes avec redémarrage transparent du service audio Windows.
+#### 1. 🎤 Détection Vocale Acoustique & VU-Mètre Ultra-Réactif (Time-Domain RMS + Peak)
+* ⚡ **Fin du faux statut "Silence" :** Remplacement de l'ancien calcul de moyenne par bandes de fréquences par un analyseur temporel RMS + Peak calibré pour la voix humaine. Dès que tu parles ou chuchotes dans ton micro, FreePad détecte instantanément ta voix et le VU-mètre réagit en direct !
+* 🟢 **Indicateur Dynamique :** Affichage en temps réel du pourcentage de signal vocal (`Signal Micro Détecté 🎤 (xx%)`) avec animation visuelle fluide.
 
-#### 2. 🎙️ Modulateur de Voix Studio Zéro-Latence & Isolation Zéro-Larsen
-* ⚡ **Pitch Shifting OLA sans clics ni coupures :** Double buffer OLA à fenêtrage de Hann continu pour des transpositions douces, riches et naturelles.
-* 🎵 **Auto-Tune Travis Scott / PNL :** Détection de fondamentale ultra-rapide par autocorrélation (75Hz-550Hz) verrouillée sur la gamme chromatique.
-* 🤖 **Vocoder Daft Punk, Démon des Abysses, Hélium, Mégaphone & Talkie-Walkie :** Traitements DSP en temps réel sans aucun artefact ni saturation.
-* 🛡️ **Isolation totale des flux :** Ton vrai microphone physique capture ta voix, le DSP FreePad la transforme, et l'injecte dans le câble virtuel dédié sans aucune boucle de rétroaction assourdissante.
+#### 2. ⚡ Réveil & Capture Instantanée à l'Ouverture des Paramètres
+* 🔌 **Auto-Activation Directe :** À l'ouverture de la fenêtre Paramètres, le flux du microphone sélectionné est automatiquement vérifié et démarré en arrière-plan sans nécessiter d'action préalable.
 
-#### 3. 💬 Intégration Discord & Jeux Instantanée
-* 📋 **Bouton Copier 1-Clic :** Copie instantanément le nom du périphérique d'entrée pour Discord (`CABLE Output (VB-Audio Virtual Cable)`).
-* 🎧 **Echo Test 3s :** Écoute ce que tes amis recevront dans leur casque avant de rejoindre un salon vocal.
-
-#### 4. 🎯 Fin des Sons Joués en Double (Soundboard)
-* 🛑 **Ducking automatique & Debounce :** Empêche tout déclenchement intempestif ou réinjection parasite de la soundboard dans le flux micro.
+#### 3. 🛡️ Capture Microphone Multi-Tier & Anti-Collision WASAPI
+* 🚀 **Multi-Tier Fallback :** Si le pilote Windows d'un micro USB ou d'un casque Bluetooth refuse le mode brut sans DSP, FreePad bascule automatiquement sur les contraintes universelles compatibles sans afficher d'erreur.
+* 🔒 **Verrou Mutex Asynchrone :** Empêche tout blocage ou plantage du périphérique audio en cas de clics rapides ou changements successifs dans la liste des micros.
 
 ---
 

@@ -110,16 +110,31 @@ export default function SettingsModal({
     checkDriver();
   }, [isOpen]);
 
-  // Auto-select Default Microphone if none selected
+  // Auto-select Default Microphone if none selected, and ensure mic stream is live when modal opens
   useEffect(() => {
-    if (!selectedMicInput && audioInputDevices.length > 0) {
-      const defaultMic = audioInputDevices.find(d => d.deviceId === 'default') || audioInputDevices[0];
-      if (defaultMic) {
-        setSelectedMicInput(defaultMic.deviceId);
-        soundEngine.toggleMicPassthrough(true, defaultMic.deviceId);
+    if (!isOpen) return;
+
+    const startMic = async () => {
+      await soundEngine.init();
+      if (soundEngine.ctx && soundEngine.ctx.state === 'suspended') {
+        await soundEngine.ctx.resume();
       }
-    }
-  }, [audioInputDevices, selectedMicInput]);
+      let targetMicId = selectedMicInput;
+      if (!targetMicId || targetMicId === 'none') {
+        const defaultMic = audioInputDevices.find(d => d.deviceId === 'default') || audioInputDevices[0];
+        if (defaultMic) {
+          targetMicId = defaultMic.deviceId;
+          setSelectedMicInput(defaultMic.deviceId);
+        }
+      }
+      if (targetMicId && targetMicId !== 'none') {
+        const micObj = audioInputDevices.find(d => d.deviceId === targetMicId);
+        await soundEngine.toggleMicPassthrough(true, targetMicId, micObj?.label || '');
+      }
+    };
+
+    startMic().catch(e => console.warn("Settings mic activation:", e));
+  }, [isOpen, selectedMicInput, audioInputDevices]);
 
   const handleInstallApo = async () => {
     setIsInstalling(true);
@@ -474,17 +489,17 @@ export default function SettingsModal({
             <div className="space-y-1.5 bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${micLevel > 0.05 ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`} />
+                  <span className={`w-2 h-2 rounded-full ${micLevel > 0.015 ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`} />
                   Test voix en direct :
                 </span>
                 <span className="font-mono text-[10px] text-cyan-300 font-bold">
-                  {micLevel > 0.05 ? "Signal Micro Détecté 🎤" : "Silence"}
+                  {micLevel > 0.015 ? `Signal Micro Détecté 🎤 (${Math.round(micLevel * 100)}%)` : "Silence"}
                 </span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden p-0.5">
                 <div
                   className="h-full rounded-full transition-all duration-75 bg-gradient-to-r from-cyan-400 via-indigo-500 to-pink-500"
-                  style={{ width: `${Math.min(100, Math.max(5, micLevel * 100))}%` }}
+                  style={{ width: `${Math.min(100, Math.max(4, Math.round(micLevel * 100)))}%` }}
                 />
               </div>
             </div>

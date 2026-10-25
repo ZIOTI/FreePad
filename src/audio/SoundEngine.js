@@ -254,6 +254,19 @@ class SoundEngine {
   }
 
   async toggleMicPassthrough(enabled, inputDeviceId = null, inputDeviceLabel = '') {
+    // Prevent concurrent mic toggle collisions (Windows WASAPI mutex)
+    if (this._togglingMicPromise) {
+      try { await this._togglingMicPromise; } catch (e) {}
+    }
+    this._togglingMicPromise = this._doToggleMicPassthrough(enabled, inputDeviceId, inputDeviceLabel);
+    try {
+      return await this._togglingMicPromise;
+    } finally {
+      this._togglingMicPromise = null;
+    }
+  }
+
+  async _doToggleMicPassthrough(enabled, inputDeviceId = null, inputDeviceLabel = '') {
     if (!enabled || !inputDeviceId || inputDeviceId === 'none') {
       this.isMicPassthroughEnabled = false;
       this.stopRealMic();
@@ -285,32 +298,63 @@ class SoundEngine {
       }
 
       // If already connected to this device and active, do not recreate stream
-      if (this.realMicStream && this.realMicDeviceId === inputDeviceId && this.realMicStream.active) {
+      if (this.realMicStream && this.realMicStream.active && 
+          (this.realMicDeviceId === inputDeviceId || (!inputDeviceId && this.realMicDeviceId === 'default'))) {
         return;
       }
 
       // Stop previous mic stream cleanly
       this.stopRealMic();
 
-      // Fix Chromium OverconstrainedError: never use { exact: 'default' }
       const hasSpecificId = inputDeviceId && inputDeviceId !== 'default' && inputDeviceId !== 'none';
-      const constraints = {
-        audio: {
-          deviceId: hasSpecificId ? { exact: inputDeviceId } : undefined,
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
-        }
-      };
+      let stream = null;
 
-      this.realMicStream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Tier 1: Low-latency capture with ideal device binding
+      try {
+        const constraints = {
+          audio: {
+            deviceId: hasSpecificId ? { ideal: inputDeviceId } : undefined,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (e1) {
+        console.warn("Preferred mic constraints failed, retrying with standard constraints:", e1?.message || e1);
+        try {
+          // Tier 2: Standard constraints without raw audio flags
+          const fallbackConstraints = {
+            audio: {
+              deviceId: hasSpecificId ? { ideal: inputDeviceId } : undefined
+            }
+          };
+          stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        } catch (e2) {
+          console.warn("Standard mic constraints failed, retrying with default audio capture:", e2?.message || e2);
+          // Tier 3: Universal fallback
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+      }
+
+      if (!stream) {
+        throw new Error("Impossible d'obtenir un flux microphone valide");
+      }
+
+      // Ensure all tracks are unmuted and enabled
+      stream.getAudioTracks().forEach(track => {
+        track.enabled = true;
+      });
+
+      this.realMicStream = stream;
       this.realMicDeviceId = inputDeviceId || 'default';
 
       // Create mic source and analyser in this.ctx
       this.realMicSourceNode = this.ctx.createMediaStreamSource(this.realMicStream);
 
       this.micAnalyser = this.ctx.createAnalyser();
-      this.micAnalyser.fftSize = 64;
+      this.micAnalyser.fftSize = 128;
+      this.micAnalyser.smoothingTimeConstant = 0.3;
       this.realMicSourceNode.connect(this.micAnalyser);
 
       // Connect Voice Changer Engine in this.ctx
@@ -826,13 +870,34 @@ class SoundEngine {
 
   getMicLevel() {
     if (!this.micAnalyser) return 0;
+    
+    // Time Domain RMS + Peak for true acoustic speech measurement
+    if (typeof this.micAnalyser.getFloatTimeDomainData === 'function') {
+      const timeData = new Float32Array(this.micAnalyser.fftSize);
+      this.micAnalyser.getFloatTimeDomainData(timeData);
+      let sumSquares = 0;
+      let peak = 0;
+      for (let i = 0; i < timeData.length; i++) {
+        const val = timeData[i];
+        const abs = Math.abs(val);
+        if (abs > peak) peak = abs;
+        sumSquares += val * val;
+      }
+      const rms = Math.sqrt(sumSquares / timeData.length);
+      // Boost speech range dynamically: normal speech reaches 0.25 - 0.75
+      const level = Math.max(rms * 5.0, peak * 2.0);
+      return Math.min(1.0, Math.max(0, level));
+    }
+
+    // Fallback: Byte frequency focusing on speech bins
     const data = new Uint8Array(this.micAnalyser.frequencyBinCount);
     this.micAnalyser.getByteFrequencyData(data);
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) {
-      sum += data[i];
+    let voiceSum = 0;
+    const voiceBins = Math.min(data.length, 8);
+    for (let i = 0; i < voiceBins; i++) {
+      voiceSum += data[i];
     }
-    return sum / (data.length * 255);
+    return Math.min(1.0, voiceSum / (voiceBins * 120));
   }
 
   setNormalization(enabled) {

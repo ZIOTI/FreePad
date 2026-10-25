@@ -592,11 +592,27 @@ class VoiceChangerEngine {
   // Live VU-Meter (0.0 to 1.0)
   getAudioLevel() {
     if (!this.analyserNode) return 0;
+    if (typeof this.analyserNode.getFloatTimeDomainData === 'function') {
+      const timeData = new Float32Array(this.analyserNode.fftSize);
+      this.analyserNode.getFloatTimeDomainData(timeData);
+      let sumSquares = 0;
+      let peak = 0;
+      for (let i = 0; i < timeData.length; i++) {
+        const val = timeData[i];
+        const abs = Math.abs(val);
+        if (abs > peak) peak = abs;
+        sumSquares += val * val;
+      }
+      const rms = Math.sqrt(sumSquares / timeData.length);
+      const level = Math.max(rms * 4.5, peak * 1.8);
+      return Math.min(1.0, Math.max(0, level));
+    }
     const array = new Uint8Array(this.analyserNode.frequencyBinCount);
     this.analyserNode.getByteFrequencyData(array);
     let sum = 0;
-    for (let i = 0; i < array.length; i++) sum += array[i];
-    return Math.min(1.0, sum / (array.length * 200));
+    const bins = Math.min(array.length, 8);
+    for (let i = 0; i < bins; i++) sum += array[i];
+    return Math.min(1.0, sum / (bins * 128));
   }
 
   connectMicSource(sourceNode) {
