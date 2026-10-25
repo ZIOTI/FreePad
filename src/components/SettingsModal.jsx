@@ -110,7 +110,7 @@ export default function SettingsModal({
     checkDriver();
   }, [isOpen]);
 
-  // Auto-select Default Microphone if none selected, and ensure mic stream is live when modal opens
+  // Ensure microphone stream is active when SettingsModal opens
   useEffect(() => {
     if (!isOpen) return;
 
@@ -119,22 +119,21 @@ export default function SettingsModal({
       if (soundEngine.ctx && soundEngine.ctx.state === 'suspended') {
         await soundEngine.ctx.resume();
       }
-      let targetMicId = selectedMicInput;
-      if (!targetMicId || targetMicId === 'none') {
-        const defaultMic = audioInputDevices.find(d => d.deviceId === 'default') || audioInputDevices[0];
-        if (defaultMic) {
-          targetMicId = defaultMic.deviceId;
-          setSelectedMicInput(defaultMic.deviceId);
+      if (!soundEngine.realMicStream || !soundEngine.realMicStream.active) {
+        let targetMicId = selectedMicInput;
+        if (!targetMicId || targetMicId === 'none') {
+          const defaultMic = audioInputDevices.find(d => d.deviceId === 'default') || audioInputDevices[0];
+          if (defaultMic) targetMicId = defaultMic.deviceId;
         }
-      }
-      if (targetMicId && targetMicId !== 'none') {
-        const micObj = audioInputDevices.find(d => d.deviceId === targetMicId);
-        await soundEngine.toggleMicPassthrough(true, targetMicId, micObj?.label || '');
+        if (targetMicId && targetMicId !== 'none') {
+          const micObj = audioInputDevices.find(d => d.deviceId === targetMicId);
+          await soundEngine.toggleMicPassthrough(true, targetMicId, micObj?.label || '');
+        }
       }
     };
 
     startMic().catch(e => console.warn("Settings mic activation:", e));
-  }, [isOpen, selectedMicInput, audioInputDevices]);
+  }, [isOpen]);
 
   const handleInstallApo = async () => {
     setIsInstalling(true);
@@ -468,8 +467,6 @@ export default function SettingsModal({
               onChange={(e) => {
                 const devId = e.target.value;
                 setSelectedMicInput(devId);
-                const dev = audioInputDevices.find(d => d.deviceId === devId);
-                soundEngine.toggleMicPassthrough(devId && devId !== 'none', devId, dev?.label || '');
               }}
               className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition-colors mb-3"
             >

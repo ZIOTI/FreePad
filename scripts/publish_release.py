@@ -38,25 +38,24 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Détection Vocale Instantanée & VU-Mètre Réactif"
-BODY = f"""# 🎉 FreePad {TAG} — Détection Vocale Instantanée & VU-Mètre Réactif
+RELEASE_NAME = f"FreePad {TAG} — Moteur Audio Actif & Détection Micro Universelle"
+BODY = f"""# 🎉 FreePad {TAG} — Moteur Audio Actif & Détection Micro Universelle
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro et modulateur de voix pro.
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.0 ?
+### 🚀 Quoi de neuf dans la v1.3.1 ?
 
-#### 1. 🎤 Détection Vocale Acoustique & VU-Mètre Ultra-Réactif (Time-Domain RMS + Peak)
-* ⚡ **Fin du faux statut "Silence" :** Remplacement de l'ancien calcul de moyenne par bandes de fréquences par un analyseur temporel RMS + Peak calibré pour la voix humaine. Dès que tu parles ou chuchotes dans ton micro, FreePad détecte instantanément ta voix et le VU-mètre réagit en direct !
-* 🟢 **Indicateur Dynamique :** Affichage en temps réel du pourcentage de signal vocal (`Signal Micro Détecté 🎤 (xx%)`) avec animation visuelle fluide.
+#### 1. ⚡ Moteur WebAudio Actif en Continu (Pull Engine Garanti)
+* 🔌 **Capture Active Permanente :** Raccordement du flux microphone à la destination audio via un nœud silencieux (`gain = 0.0`). Le moteur WebAudio de Chromium traite désormais les échantillons audio en continu même lorsque le retour casque (monitoring) est désactivé.
+* 📊 **Mesure Directe Matérielle (100 Hz) :** Écoute directe des trames PCM matérielles du microphone (Nor-Tec, Logitech, Fifine, Rode...) à 100 fois par seconde avec calcul instantané RMS + Peak.
 
-#### 2. ⚡ Réveil & Capture Instantanée à l'Ouverture des Paramètres
-* 🔌 **Auto-Activation Directe :** À l'ouverture de la fenêtre Paramètres, le flux du microphone sélectionné est automatiquement vérifié et démarré en arrière-plan sans nécessiter d'action préalable.
+#### 2. 🎯 Verrouillage Matériel Précis (Exact Device Binding)
+* 🎙️ **Prise en charge des micros USB réels :** Lorsque tu sélectionnes ton vrai micro (ex: `Microphone (Nor-Tec streaming mic)`), FreePad se verrouille précisément sur ce périphérique physique, évitant tout basculement par défaut sur un périphérique virtuel muet (comme Voicemod).
 
-#### 3. 🛡️ Capture Microphone Multi-Tier & Anti-Collision WASAPI
-* 🚀 **Multi-Tier Fallback :** Si le pilote Windows d'un micro USB ou d'un casque Bluetooth refuse le mode brut sans DSP, FreePad bascule automatiquement sur les contraintes universelles compatibles sans afficher d'erreur.
-* 🔒 **Verrou Mutex Asynchrone :** Empêche tout blocage ou plantage du périphérique audio en cas de clics rapides ou changements successifs dans la liste des micros.
+#### 3. 🛡️ Débouncing Anti-Rebond
+* 🔒 **Zéro Collision Audio :** La sélection d'un micro dans le menu déroulant est désormais protégée par un filtre anti-rebond. Plus aucun risque de plantage du pilote USB (`NotReadableError`) lors de changements rapides.
 
 ---
 

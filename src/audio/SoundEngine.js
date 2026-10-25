@@ -309,30 +309,43 @@ class SoundEngine {
       const hasSpecificId = inputDeviceId && inputDeviceId !== 'default' && inputDeviceId !== 'none';
       let stream = null;
 
-      // Tier 1: Low-latency capture with ideal device binding
-      try {
-        const constraints = {
-          audio: {
-            deviceId: hasSpecificId ? { ideal: inputDeviceId } : undefined,
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          }
-        };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (e1) {
-        console.warn("Preferred mic constraints failed, retrying with standard constraints:", e1?.message || e1);
+      // Tier 1: Try exact binding with low-latency flags
+      if (hasSpecificId) {
         try {
-          // Tier 2: Standard constraints without raw audio flags
-          const fallbackConstraints = {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              deviceId: { exact: inputDeviceId },
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          });
+        } catch (eExactRaw) {
+          console.warn("Tier 1 mic capture (exact + raw) failed, trying Tier 2 (exact + standard):", eExactRaw?.message || eExactRaw);
+          try {
+            // Tier 2: Exact binding with standard flags (accepts Windows audio enhancements)
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                deviceId: { exact: inputDeviceId }
+              }
+            });
+          } catch (eExactStd) {
+            console.warn("Tier 2 mic capture (exact + std) failed, trying Tier 3 (ideal):", eExactStd?.message || eExactStd);
+          }
+        }
+      }
+
+      // Tier 3: Ideal binding if exact failed or default requested
+      if (!stream) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
             audio: {
               deviceId: hasSpecificId ? { ideal: inputDeviceId } : undefined
             }
-          };
-          stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-        } catch (e2) {
-          console.warn("Standard mic constraints failed, retrying with default audio capture:", e2?.message || e2);
-          // Tier 3: Universal fallback
+          });
+        } catch (eIdeal) {
+          console.warn("Tier 3 mic capture (ideal) failed, falling back to Tier 4 (default audio):", eIdeal?.message || eIdeal);
+          // Tier 4: Universal default capture
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
       }
@@ -356,6 +369,39 @@ class SoundEngine {
       this.micAnalyser.fftSize = 128;
       this.micAnalyser.smoothingTimeConstant = 0.3;
       this.realMicSourceNode.connect(this.micAnalyser);
+
+      // Connect to ctx.destination via silent gain node (0.0 volume)
+      // This is MANDATORY in Chromium to guarantee the Web Audio pull engine actively processes mic frames
+      if (!this.micSilentPullGain) {
+        this.micSilentPullGain = this.ctx.createGain();
+        this.micSilentPullGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+        this.micSilentPullGain.connect(this.ctx.destination);
+      }
+      this.micAnalyser.connect(this.micSilentPullGain);
+
+      // Dedicated ScriptProcessor for direct 100fps raw PCM acoustic measurement
+      if (this.micMeterNode) {
+        try { this.micMeterNode.disconnect(); } catch (e) {}
+      }
+      this.micMeterNode = this.ctx.createScriptProcessor(512, 1, 1);
+      this._lastMicLevel = 0;
+      this.micMeterNode.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        let sumSquares = 0;
+        let peak = 0;
+        for (let i = 0; i < input.length; i++) {
+          const val = input[i];
+          const abs = Math.abs(val);
+          if (abs > peak) peak = abs;
+          sumSquares += val * val;
+        }
+        const rms = Math.sqrt(sumSquares / input.length);
+        // Boost real voice range dynamically (0.2 to 0.8)
+        const rawLevel = Math.max(rms * 5.0, peak * 2.2);
+        this._lastMicLevel = Math.min(1.0, Math.max(0, rawLevel));
+      };
+      this.realMicSourceNode.connect(this.micMeterNode);
+      this.micMeterNode.connect(this.micSilentPullGain);
 
       // Connect Voice Changer Engine in this.ctx
       await voiceChangerEngine.init(this.ctx);
@@ -394,6 +440,11 @@ class SoundEngine {
       try { this.micBroadcastBridgeDest.disconnect(); } catch (e) {}
       this.micBroadcastBridgeDest = null;
     }
+    if (this.micMeterNode) {
+      try { this.micMeterNode.disconnect(); } catch (e) {}
+      this.micMeterNode = null;
+    }
+    this._lastMicLevel = 0;
     voiceChangerEngine.stopApoVoiceStream();
     voiceChangerEngine.cleanupCurrentGraph();
   }
@@ -869,9 +920,14 @@ class SoundEngine {
   }
 
   getMicLevel() {
+    // 1. Direct hardware PCM meter node level
+    if (this._lastMicLevel !== undefined && this._lastMicLevel > 0) {
+      return this._lastMicLevel;
+    }
+
     if (!this.micAnalyser) return 0;
     
-    // Time Domain RMS + Peak for true acoustic speech measurement
+    // 2. Time Domain RMS + Peak for true acoustic speech measurement
     if (typeof this.micAnalyser.getFloatTimeDomainData === 'function') {
       const timeData = new Float32Array(this.micAnalyser.fftSize);
       this.micAnalyser.getFloatTimeDomainData(timeData);

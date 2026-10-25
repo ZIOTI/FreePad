@@ -246,16 +246,19 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('freepad_selected_mic', selectedMicInput);
-    if (!selectedMicInput || selectedMicInput === 'none') {
-      soundEngine.toggleMicPassthrough(false);
-    } else {
-      const micObj = audioInputDevices.find(d => d.deviceId === selectedMicInput);
-      soundEngine.toggleMicPassthrough(
-        isMicPassthrough,
-        selectedMicInput,
-        micObj?.label || ''
-      );
-    }
+    const timer = setTimeout(() => {
+      if (!selectedMicInput || selectedMicInput === 'none') {
+        soundEngine.toggleMicPassthrough(false);
+      } else {
+        const micObj = audioInputDevices.find(d => d.deviceId === selectedMicInput);
+        soundEngine.toggleMicPassthrough(
+          isMicPassthrough,
+          selectedMicInput,
+          micObj?.label || ''
+        );
+      }
+    }, 120);
+    return () => clearTimeout(timer);
   }, [selectedMicInput, isMicPassthrough, audioInputDevices]);
 
   // Request mic permission on start to reveal real hardware labels

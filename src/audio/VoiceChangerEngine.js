@@ -554,6 +554,14 @@ class VoiceChangerEngine {
     this.analyserNode.smoothingTimeConstant = 0.5;
     this.outputNode.connect(this.analyserNode);
 
+    // Connect to ctx.destination via silent gain to guarantee graph pulling
+    if (!this.silentPullGain) {
+      this.silentPullGain = this.ctx.createGain();
+      this.silentPullGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+      this.silentPullGain.connect(this.ctx.destination);
+    }
+    this.analyserNode.connect(this.silentPullGain);
+
     // Automatically forward to broadcast bus (Discord / virtual cable)
     soundEngine.ensureBroadcastBridge();
 
