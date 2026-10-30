@@ -171,6 +171,7 @@ for file_path, asset_name in assets_to_upload:
     u_req = urllib.request.Request(url, data=file_bytes, method="POST")
     u_req.add_header("Authorization", f"Bearer {TOKEN}")
     u_req.add_header("Content-Type", "application/octet-stream")
+    u_req.add_header("Content-Length", str(file_size))
     u_req.add_header("User-Agent", "FreePad-Release-Script")
     
     try:
