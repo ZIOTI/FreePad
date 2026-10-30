@@ -38,28 +38,35 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Téléchargement des Clips sur PC & Accès au Dossier des Clips"
-BODY = f"""# 🎉 FreePad {TAG} — Téléchargement des Clips sur PC & Accès au Dossier des Clips
+RELEASE_NAME = f"FreePad {TAG} — Pilote Micro Direct 64-bit Natif & Support Universel Discord VoIP"
+BODY = f"""# 🎉 FreePad {TAG} — Pilote Micro Direct 64-bit Natif & Support Universel Discord VoIP
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native et capture de clips instantanés (Instant Replay).
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.6 ?
+### 🚀 Quoi de neuf dans la v1.3.7 ?
 
-#### 1. 📥 Téléchargement Direct de tous les Clips & Sons sur ton PC
-* 💾 **Bouton de Téléchargement 1-Clic :** Chaque clip (et chaque son) dispose maintenant d'un bouton de téléchargement direct (`📥`) dans la grille de son et dans la vue liste.
-* 📂 **Boîte de dialogue native Windows :** Clique sur l'icône de téléchargement pour enregistrer le clip au format audio `.wav` où tu veux sur ton PC (Téléchargements, Bureau, Musique, etc.).
-* 🌐 **Compatibilité universelle :** Fonctionne aussi bien dans l'application Windows que dans le navigateur web.
+#### 1. ⚙️ Exécution PowerShell 64-bit Native (Sysnative)
+* 🚀 **Accès direct au Registre 64-bit :** L'installeur NSIS et l'application FreePad utilisent désormais le canal `Sysnative` 64-bit de Windows pour configurer les périphériques audio (`MMDevices\\Audio\\Capture`) directement dans la ruche système native, éliminant tout blocage lié au pont 32-bit SysWOW64.
+* 🛡️ **Auto-élévation 64-bit :** Le script d'installation détecte l'architecture de l'OS et se relance automatiquement en 64-bit natif.
 
-#### 2. 📁 Ouvrir le Dossier des Clips en 1 Clic
-* 🚀 **Accès direct aux fichiers :** Ajout du bouton `📂 Dossier des clips` dans la barre de découpage instantané (F8) et dans la catégorie "Mes Clips".
-* 🗂️ **Explorateur Windows :** Un clic ouvre instantanément le dossier `%APPDATA%/FreePad/sounds/clips/` dans l'Explorateur de fichiers Windows où tous tes clips Discord sont automatiquement stockés.
+#### 2. 🎙️ Support Universel Discord VoIP (Mode Communications)
+* 🎧 **Compatible tous casques gaming :** Enregistrement simultané des modes `DEFAULT` et `COMMUNICATIONS` (`{{FC1CFC9B-B9D6-4CFA-B5E0-4BB2166878B2}}`) pour que Windows ne contourne jamais le filtre APO lors des appels vocaux Discord sur casques Logitech, Razer, Corsair, SteelSeries, HyperX et micros USB.
+* 📋 **Enregistrement AudioEngine APO & COM :** Enregistrement complet dans `AudioEngine\\AudioProcessingObjects` avec drapeaux de format et `regsvr32` natif.
+
+#### 3. 🔑 Permissions Windows Universelles (FR / EN & TrustedInstaller)
+* 🌐 **Compatibilité linguistique :** Remplacement des noms de groupes Windows localisés par des SIDs immuables (`*S-1-5-32-545` et `*S-1-5-11`), fonctionnant sur n'importe quelle version de Windows (Français, Anglais, etc.).
+* 🔓 **Déverrouillage TrustedInstaller :** Attribution automatique des privilèges système Win32 (`SetNamedSecurityInfo`) sur `FxProperties` pour garantir zéro erreur « Accès refusé » même sur PC clean install.
+
+#### 4. 💡 Conseil Réglage Discord Intégré
+* ⚠️ **Bandeau d'information & Paramètres :** Rappel indispensable pour désactiver la suppression de bruit Krisp et l'annulation d'écho dans Discord afin de garantir une diffusion limpide à 100% de volume.
 
 ---
 
-### 📥 Téléchargement
-Téléchargez **FreePad-Setup-{VERSION}.exe** ci-dessous pour installer ou mettre à jour FreePad !
+### 📥 Téléchargement & Mise à jour
+* **Via l'application :** Ouvre FreePad > Paramètres > clique sur **Rechercher les mises à jour** (ou attends la notification automatique). Après mise à jour, clique sur **🔄 Réparer / Réinstaller** dans les paramètres micro.
+* **Via l'installeur :** Télécharge **FreePad-Setup-{VERSION}.exe** ci-dessous pour une installation 100% propre avec élévation immédiate !
 """
 
 print(f"Publishing release {TAG} for {REPO}...")

@@ -241,15 +241,23 @@ export default function SettingsModal({
             </div>
           </div>
 
-          <div className="mt-3 p-3 rounded-lg bg-slate-950/60 border border-slate-800 text-xs text-slate-300 space-y-2">
+          <div className="mt-3 p-3 rounded-lg bg-slate-950/60 border border-slate-800 text-xs text-slate-300 space-y-2.5">
             <p className="flex items-center gap-1.5 font-semibold text-white">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>Dans Discord : choisis simplement ton <strong>vrai microphone habituel</strong> (Nor-Tec, Casque, USB).</span>
             </p>
-            <div className="text-[11px] bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-slate-300 space-y-1">
-              <p className="font-bold text-cyan-300">💡 Réglages Discord conseillés :</p>
-              <p>• <strong>Désactive Krisp</strong> (Voix & Vidéo → Suppression du bruit → Mets sur <u>Aucun</u>) pour que Discord ne coupe pas tes sons.</p>
-              <p>• <strong>Désactive l'Annulation d'écho</strong> dans les paramètres vocaux de Discord.</p>
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-200 text-xs space-y-1.5 shadow-sm">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-300 text-xs">
+                    ⚠️ Réglage Discord Indispensable :
+                  </p>
+                  <p className="text-[11.5px] text-amber-100/90 leading-relaxed mt-1">
+                    Dans <strong>Discord &gt; Voix &amp; Vidéo</strong> &gt; Désactiver <strong>'Suppression du bruit (Krisp)'</strong> (mettre sur <u>Aucun</u>) et désactiver <strong>'Annulation de l'écho'</strong> pour que Discord ne filtre pas les sons du soundboard !
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

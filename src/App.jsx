@@ -152,6 +152,7 @@ export default function App() {
   const [isApoInstalled, setIsApoInstalled] = useState(true);
   const [isInstallingApo, setIsInstallingApo] = useState(false);
   const [apoBannerMsg, setApoBannerMsg] = useState('');
+  const [showDiscordTip, setShowDiscordTip] = useState(() => !localStorage.getItem('freepad_hide_discord_tip'));
 
   const showToast = (message, type = 'info') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -1014,6 +1015,28 @@ export default function App() {
         <div className="bg-emerald-950/90 text-emerald-200 border-b border-emerald-500/40 px-6 py-1.5 text-xs font-semibold text-center flex items-center justify-center gap-2 animate-in fade-in">
           <CheckCircle className="w-4 h-4 text-emerald-400" />
           <span>{apoBannerMsg}</span>
+        </div>
+      )}
+
+      {/* DISCORD AUDIO SETTINGS GUIDANCE BANNER */}
+      {showDiscordTip && (
+        <div className="bg-amber-950/80 text-amber-200 border-b border-amber-500/30 px-4 py-1.5 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="font-bold text-amber-300 shrink-0">⚠️ Réglage Discord Indispensable :</span>
+            <span className="text-amber-100/90 text-[11px] truncate">
+              Dans Discord &gt; Voix &amp; Vidéo &gt; Désactiver <strong>'Suppression du bruit (Krisp)'</strong> (mettre sur <u>Aucun</u>) et désactiver <strong>'Annulation de l'écho'</strong> pour que Discord ne filtre pas les sons du soundboard !
+            </span>
+          </div>
+          <button 
+            onClick={() => {
+              setShowDiscordTip(false);
+              localStorage.setItem('freepad_hide_discord_tip', 'true');
+            }}
+            className="text-amber-400 hover:text-white text-xs px-2 py-0.5 rounded hover:bg-amber-900/50 shrink-0 cursor-pointer font-bold"
+            title="Masquer le conseil"
+          >
+            ✕
+          </button>
         </div>
       )}
 

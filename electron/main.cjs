@@ -537,21 +537,27 @@ ipcMain.handle('install-apo-driver', async () => {
       return { success: false, error: "Fichier install_apo.ps1 introuvable" };
     }
 
+    const winDir = process.env.WINDIR || 'C:\\Windows';
+    const sysnativePs = path.join(winDir, 'Sysnative', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const sys32Ps = path.join(winDir, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const nativePs = fs.existsSync(sysnativePs) ? sysnativePs : (fs.existsSync(sys32Ps) ? sys32Ps : 'powershell.exe');
+
     // Create an installer batch script in userData/bin
     const batPath = path.join(binDir, 'run_install.bat');
     const batContent = `@echo off
 chcp 65001 >nul
-title FreePad — Installation du Pilote Micro Direct (APO)
+title FreePad — Installation du Pilote Micro Direct (APO) — Fait par zioti
 cd /d "%~dp0"
 cls
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"
+"${nativePs}" -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"
 `;
     fs.writeFileSync(batPath, batContent, 'utf8');
 
     // 100% Reliable Native Windows UAC Elevation directly via PowerShell Start-Process (Fait par zioti)
     // Avoids wscript/cscript dependency which can be blocked by security software
-    const psCmd = `Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""${ps1Path}""'`;
-    exec(`powershell.exe -NoProfile -Command "${psCmd}"`, (err) => {
+    const psTarget = fs.existsSync(sysnativePs) ? sysnativePs : (fs.existsSync(sys32Ps) ? sys32Ps : 'powershell.exe');
+    const psCmd = `Start-Process -FilePath '${psTarget.replace(/'/g, "''")}' -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""${ps1Path}""'`;
+    exec(`"${nativePs}" -NoProfile -Command "${psCmd}"`, (err) => {
       if (err) {
         console.warn("Direct PowerShell elevation failed, trying batch fallback:", err.message);
         try {

@@ -48,11 +48,15 @@ npm run dev
 
 ---
 
-## 🎙️ Diffusion dans Discord / Jeux Vidéo
+## 🎙️ Diffusion Directe dans Discord & Jeux Vidéo (100% Sans Câble)
 
-1. Installez un câble audio virtuel si vous n'en avez pas déjà un (ex: **VB-Audio Virtual Cable**, 100% gratuit).
+FreePad utilise une **injection matérielle directe (APO)** dans votre vrai microphone :
+1. **Zéro câble virtuel nécessaire** : Plus besoin de VB-Audio Virtual Cable, Voicemeeter ou Soundpad.
 2. Dans FreePad > **Paramètres** :
-   - Sélectionnez votre casque pour l'écoute locale.
-   - Configurez la sortie de diffusion vers votre câble virtuel.
+   - Cliquez sur **« ⚡ Activer l'injection directe dans mon micro (1 clic) »**.
+   - Le pilote s'injecte directement dans vos microphones réels (Casque, USB, Realtek, etc.).
 3. Dans Discord / Jeux :
-   - Choisissez le Câble Virtuel comme Microphone d'entrée.
+   - Conservez simplement votre **micro habituel**.
+   - ⚠️ **Réglage Discord conseillé** : Dans *Discord > Voix & Vidéo*, désactivez la **Suppression du bruit (Krisp)** (mettre sur *Aucun*) et désactivez **Annulation de l'écho** pour que Discord ne filtre pas les sons du soundboard !
+
+*Fait par zioti*
