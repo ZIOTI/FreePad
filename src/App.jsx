@@ -23,7 +23,8 @@ import {
   Zap,
   Smartphone,
   SquarePlay,
-  Mic
+  Mic,
+  Download
 } from 'lucide-react';
 import soundEngine from './audio/SoundEngine';
 import audioClipRecorder from './audio/AudioClipRecorder';
@@ -499,10 +500,48 @@ export default function App() {
       });
       setActiveCategory('Mes Clips');
 
-      showToast(`🎉 Clip de ${seconds}s enregistré ! Rejoue-le avec ton micro !`, "success");
+      showToast(`🎉 Clip de ${seconds}s enregistré ! Rejoue-le avec ton micro ou télécharge-le avec l'icône 📥 !`, "success");
     } catch (err) {
       console.warn("Clip error:", err);
       showToast(err.message || "Erreur lors du découpage du clip.", "error");
+    }
+  };
+
+  const handleExportSound = async (sound) => {
+    if (!sound) return;
+    try {
+      if (window.electronAPI && typeof window.electronAPI.exportAudioFile === 'function') {
+        const res = await window.electronAPI.exportAudioFile({
+          filePath: sound.filePath,
+          dataUrl: sound.url,
+          title: sound.title || 'clip_freepad',
+          ext: sound.filePath ? sound.filePath.split('.').pop() : 'wav'
+        });
+
+        if (res && res.canceled) return;
+
+        if (res && res.success) {
+          showToast(`🎉 Clip "${res.fileName || sound.title}" téléchargé sur ton PC !`, "success");
+        } else {
+          showToast(res?.error || "Erreur lors du téléchargement du fichier", "error");
+        }
+        return;
+      }
+
+      // Web / Browser fallback
+      if (sound.url) {
+        const a = document.createElement('a');
+        a.href = sound.url;
+        const cleanName = (sound.title || 'clip_freepad').replace(/[/\\?%*:|"<>]/g, '_');
+        a.download = cleanName.endsWith('.wav') || cleanName.endsWith('.mp3') ? cleanName : `${cleanName}.wav`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast(`🎉 "${sound.title}" téléchargé !`, "success");
+      }
+    } catch (err) {
+      console.warn("handleExportSound error:", err);
+      showToast("Erreur lors du téléchargement : " + err.message, "error");
     }
   };
 
@@ -1090,6 +1129,20 @@ export default function App() {
             <option value="loopback">🔊 Casque / Discord (Loopback)</option>
             <option value="mic">🎙️ Mon Micro</option>
           </select>
+
+          <button
+            onClick={async () => {
+              if (window.electronAPI?.openClipsFolder) {
+                await window.electronAPI.openClipsFolder();
+                showToast("📂 Dossier des clips ouvert dans l'Explorateur Windows !", "info");
+              }
+            }}
+            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/50 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+            title="Ouvrir le dossier où tous tes clips sont enregistrés sur ton PC"
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden lg:inline">Dossier des clips</span>
+          </button>
         </div>
       </div>
 
@@ -1144,6 +1197,39 @@ export default function App() {
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-6 overflow-y-auto">
+        {(viewMode === 'grid' || viewMode === 'table') && activeCategory === 'Mes Clips' && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-rose-950/40 via-purple-950/30 to-slate-900 border border-rose-500/30 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                <Scissors className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                  <span>Mes Clips Discord &amp; Instant Replay</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
+                    {filteredSounds.length} clip{filteredSounds.length > 1 ? 's' : ''}
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Rejoue tes clips en direct dans ton micro avec Discord ou télécharge-les sur ton PC avec le bouton 📥 Télécharger.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                if (window.electronAPI?.openClipsFolder) {
+                  await window.electronAPI.openClipsFolder();
+                  showToast("📂 Dossier des clips ouvert dans l'Explorateur Windows !", "info");
+                }
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-rose-500/40 hover:border-rose-400 text-rose-200 hover:text-white text-xs font-bold flex items-center gap-2 transition-all shadow-sm shrink-0"
+            >
+              <FolderOpen className="w-4 h-4 text-rose-400" />
+              <span>Ouvrir le dossier sur mon PC</span>
+            </button>
+          </div>
+        )}
+
         {viewMode === 'myinstants' ? (
           <MyInstantsTab
             onImportSound={handleImportFromMyInstants}
@@ -1168,6 +1254,7 @@ export default function App() {
             onEditHotkey={(sound) => setHotkeySound(sound)}
             onDeleteSound={(id) => setSounds((prev) => prev.filter((s) => s.id !== id))}
             onTrimSound={(sound) => setTrimmingSound(sound)}
+            onExportSound={handleExportSound}
             onAddSoundClick={() => fileInputRef.current?.click()}
           />
         ) : (
@@ -1180,6 +1267,7 @@ export default function App() {
             onEditHotkey={(sound) => setHotkeySound(sound)}
             onDeleteSound={(id) => setSounds((prev) => prev.filter((s) => s.id !== id))}
             onTrimSound={(sound) => setTrimmingSound(sound)}
+            onExportSound={handleExportSound}
           />
         )}
       </main>

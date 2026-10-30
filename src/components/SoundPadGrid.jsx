@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, Keyboard, Volume2, Trash2, Plus, Music, Scissors } from 'lucide-react';
+import { Play, Pause, Keyboard, Volume2, Trash2, Plus, Music, Scissors, Download } from 'lucide-react';
 
 export default function SoundPadGrid({
   sounds,
@@ -10,6 +10,7 @@ export default function SoundPadGrid({
   onEditHotkey,
   onDeleteSound,
   onTrimSound,
+  onExportSound,
   onAddSoundClick
 }) {
   return (
@@ -58,14 +59,28 @@ export default function SoundPadGrid({
                 )}
               </div>
 
-              {/* Actions: Trim & Delete (hover) */}
+              {/* Actions: Download, Trim & Delete */}
               <div className="flex items-center gap-0.5">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onExportSound) onExportSound(sound);
+                  }}
+                  className={`p-1 transition-all rounded hover:bg-emerald-500/20 ${
+                    sound.isClip || sound.category === 'Mes Clips'
+                      ? 'text-emerald-400 hover:text-emerald-300 opacity-90 group-hover:opacity-100'
+                      : 'text-slate-500 hover:text-emerald-400 opacity-0 group-hover:opacity-100'
+                  }`}
+                  title="Télécharger ce clip / son sur ton PC"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onTrimSound) onTrimSound(sound);
                   }}
-                  className="text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                  className="text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-cyan-500/20"
                   title="Découper / Rogner ce son"
                 >
                   <Scissors className="w-3.5 h-3.5" />
@@ -75,7 +90,7 @@ export default function SoundPadGrid({
                     e.stopPropagation();
                     onDeleteSound(sound.id);
                   }}
-                  className="text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                  className="text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-rose-500/20"
                   title="Supprimer ce son"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

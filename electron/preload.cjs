@@ -50,6 +50,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('trigger-instant-replay', handler);
   },
 
+  // Export & Download Clips and Sounds to PC (Fait par zioti)
+  exportAudioFile: (opts) => ipcRenderer.invoke('export-audio-file', opts),
+  openClipsFolder: () => ipcRenderer.invoke('open-clips-folder'),
+  showItemInFolder: (opts) => ipcRenderer.invoke('show-item-in-folder', opts),
+
   // Instant Remix Pote (F7)
   setRemixHotkey: (opts) => ipcRenderer.invoke('set-remix-hotkey', opts),
   onTriggerInstantRemix: (callback) => {

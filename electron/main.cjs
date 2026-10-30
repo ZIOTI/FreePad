@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, dialog, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, dialog, session, desktopCapturer, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -976,6 +976,100 @@ ipcMain.handle('save-recorded-clip', async (event, { base64Data, title, duration
     };
   } catch (err) {
     console.error('save-recorded-clip error:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// ==========================================
+// EXPORT / DOWNLOAD CLIPS & SOUNDS TO PC (FAIT PAR ZIOTI)
+// ==========================================
+ipcMain.handle('export-audio-file', async (event, { filePath, dataUrl, title, ext = 'wav' }) => {
+  try {
+    const cleanTitle = (title || 'clip_freepad')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .trim()
+      .slice(0, 60);
+    const safeExt = (ext || 'wav').toLowerCase().replace(/^\./, '');
+    const defaultFileName = cleanTitle.toLowerCase().endsWith(`.${safeExt}`)
+      ? cleanTitle
+      : `${cleanTitle}.${safeExt}`;
+
+    const downloadsDir = app.getPath('downloads');
+    const defaultPath = path.join(downloadsDir, defaultFileName);
+
+    const { canceled, filePath: targetPath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Enregistrer le clip audio sur votre PC — Fait par zioti',
+      defaultPath,
+      filters: [
+        { name: 'Fichier Audio (*.wav, *.mp3)', extensions: ['wav', 'mp3', 'ogg', 'm4a'] },
+        { name: 'Tous les fichiers (*.*)', extensions: ['*'] }
+      ]
+    });
+
+    if (canceled || !targetPath) {
+      return { success: false, canceled: true };
+    }
+
+    // 1. If physical filePath exists on disk
+    if (filePath && fs.existsSync(filePath)) {
+      fs.copyFileSync(filePath, targetPath);
+      return { success: true, savedPath: targetPath, fileName: path.basename(targetPath) };
+    }
+
+    // 2. If dataUrl (base64)
+    if (dataUrl && dataUrl.startsWith('data:')) {
+      const parts = dataUrl.split(',');
+      if (parts.length > 1) {
+        const buffer = Buffer.from(parts[1], 'base64');
+        fs.writeFileSync(targetPath, buffer);
+        return { success: true, savedPath: targetPath, fileName: path.basename(targetPath) };
+      }
+    }
+
+    // 3. If dataUrl is a local file path
+    if (dataUrl && fs.existsSync(dataUrl)) {
+      fs.copyFileSync(dataUrl, targetPath);
+      return { success: true, savedPath: targetPath, fileName: path.basename(targetPath) };
+    }
+
+    // 4. If dataUrl is an HTTP/HTTPS url
+    if (dataUrl && (dataUrl.startsWith('http://') || dataUrl.startsWith('https://'))) {
+      const resp = await fetch(dataUrl);
+      if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
+      const arrayBuffer = await resp.arrayBuffer();
+      fs.writeFileSync(targetPath, Buffer.from(arrayBuffer));
+      return { success: true, savedPath: targetPath, fileName: path.basename(targetPath) };
+    }
+
+    return { success: false, error: "Fichier audio introuvable" };
+  } catch (err) {
+    console.error('export-audio-file error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('open-clips-folder', async () => {
+  try {
+    const clipsDir = path.join(app.getPath('userData'), 'sounds', 'clips');
+    if (!fs.existsSync(clipsDir)) {
+      fs.mkdirSync(clipsDir, { recursive: true });
+    }
+    await shell.openPath(clipsDir);
+    return { success: true, path: clipsDir };
+  } catch (err) {
+    console.error('open-clips-folder error:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('show-item-in-folder', async (event, { filePath }) => {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      shell.showItemInFolder(filePath);
+      return { success: true };
+    }
+    return { success: false, error: "Fichier introuvable sur le disque" };
+  } catch (err) {
     return { success: false, error: err.message };
   }
 });

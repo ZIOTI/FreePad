@@ -38,25 +38,23 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — 100% Mode Direct Micro & Modulateur de Voix Sans Grésillement"
-BODY = f"""# 🎉 FreePad {TAG} — 100% Mode Direct Micro & Modulateur de Voix Sans Grésillement
+RELEASE_NAME = f"FreePad {TAG} — Téléchargement des Clips sur PC & Accès au Dossier des Clips"
+BODY = f"""# 🎉 FreePad {TAG} — Téléchargement des Clips sur PC & Accès au Dossier des Clips
 
-**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native et modulateur de voix pro.
+**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native et capture de clips instantanés (Instant Replay).
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.5 ?
+### 🚀 Quoi de neuf dans la v1.3.6 ?
 
-#### 1. 🎙️ Voice Changer 100% Sans Câble Virtuel (Fin de "CABLE Output")
-* ⚡ **Suppression totale de VB-Cable dans le Voice Changer :** La fenêtre du Voice Changer ne demande plus jamais de sélectionner ou d'installer un câble virtuel !
-* 🎧 **Dans Discord :** Tu choisis simplement ton **vrai micro physique** (ex: WOODBRASS UM1, Logitech, HyperX...). FreePad remplace ta voix en direct au niveau du pilote audio matériel sans aucun câble ni logiciel intermédiaire !
-* 📋 **Bouton Copier 1-Clic :** Copie directement le nom exact de ton vrai micro pour Discord.
+#### 1. 📥 Téléchargement Direct de tous les Clips & Sons sur ton PC
+* 💾 **Bouton de Téléchargement 1-Clic :** Chaque clip (et chaque son) dispose maintenant d'un bouton de téléchargement direct (`📥`) dans la grille de son et dans la vue liste.
+* 📂 **Boîte de dialogue native Windows :** Clique sur l'icône de téléchargement pour enregistrer le clip au format audio `.wav` où tu veux sur ton PC (Téléchargements, Bureau, Musique, etc.).
+* 🌐 **Compatibilité universelle :** Fonctionne aussi bien dans l'application Windows que dans le navigateur web.
 
-#### 2. 🔇 Élimination Totale du Bruit Horrible dans les Effets Vocaux
-* 🛡️ **Réplication des Canaux Stéréo (APO Driver) :** Correction du décalage mono/stéréo dans le pilote matériel qui causait un son robotique accéléré et un grésillement insupportable.
-* 🎛️ **Limiteur Brickwall Studio (-1.5 dBFS) :** Ajout d'un compresseur/limiteur professionnel qui empêche tout écrêtage numérique et élimine les pointes de résonance sur les effets Démon, Hélium, et Mégaphone.
-* 🤖 **Noise Gate sur le Robot / Vocoder :** Les oscillateurs Daft Punk se coupent instantanément en silence dès que tu ne parles pas, supprimant tout buzz de transformateur en arrière-plan.
-* 🎧 **Retour Casque Sécurisé :** Désactivé par défaut pour éliminer tout risque d'effet Larsen avec les haut-parleurs.
+#### 2. 📁 Ouvrir le Dossier des Clips en 1 Clic
+* 🚀 **Accès direct aux fichiers :** Ajout du bouton `📂 Dossier des clips` dans la barre de découpage instantané (F8) et dans la catégorie "Mes Clips".
+* 🗂️ **Explorateur Windows :** Un clic ouvre instantanément le dossier `%APPDATA%/FreePad/sounds/clips/` dans l'Explorateur de fichiers Windows où tous tes clips Discord sont automatiquement stockés.
 
 ---
 

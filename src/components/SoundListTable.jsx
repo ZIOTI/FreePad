@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, Keyboard, Trash2, Music2, FolderOpen, Scissors } from 'lucide-react';
+import { Play, Pause, Keyboard, Trash2, Music2, FolderOpen, Scissors, Download } from 'lucide-react';
 
 export default function SoundListTable({
   sounds,
@@ -9,7 +9,8 @@ export default function SoundListTable({
   onStop,
   onEditHotkey,
   onDeleteSound,
-  onTrimSound
+  onTrimSound,
+  onExportSound
 }) {
   return (
     <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
@@ -127,6 +128,20 @@ export default function SoundListTable({
 
                     <td className="py-2.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onExportSound) onExportSound(sound);
+                          }}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            sound.isClip || sound.category === 'Mes Clips'
+                              ? 'hover:bg-emerald-600/30 text-emerald-400 hover:text-emerald-300'
+                              : 'hover:bg-emerald-600/30 text-slate-400 hover:text-emerald-300'
+                          }`}
+                          title="Télécharger ce clip / son sur ton PC"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
