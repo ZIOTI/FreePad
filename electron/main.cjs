@@ -549,14 +549,17 @@ chcp 65001 >nul
 title FreePad — Installation du Pilote Micro Direct (APO) — Fait par zioti
 cd /d "%~dp0"
 cls
-"${nativePs}" -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"
+if exist "%WINDIR%\\Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe" (
+    "%WINDIR%\\Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"
+) else (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"
+)
 `;
     fs.writeFileSync(batPath, batContent, 'utf8');
 
     // 100% Reliable Native Windows UAC Elevation directly via PowerShell Start-Process (Fait par zioti)
     // Avoids wscript/cscript dependency which can be blocked by security software
-    const psTarget = fs.existsSync(sysnativePs) ? sysnativePs : (fs.existsSync(sys32Ps) ? sys32Ps : 'powershell.exe');
-    const psCmd = `Start-Process -FilePath '${psTarget.replace(/'/g, "''")}' -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""${ps1Path}""'`;
+    const psCmd = `Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""${ps1Path}""'`;
     exec(`"${nativePs}" -NoProfile -Command "${psCmd}"`, (err) => {
       if (err) {
         console.warn("Direct PowerShell elevation failed, trying batch fallback:", err.message);

@@ -106,6 +106,19 @@ except urllib.error.HTTPError as e:
         release_id = release_data['id']
         print(f"Found existing release ID: {release_id} at {release_data['html_url']}")
 
+    # Update existing release name and body
+    patch_url = f"https://api.github.com/repos/{REPO}/releases/{release_id}"
+    p_req = urllib.request.Request(patch_url, data=payload, method="PATCH")
+    p_req.add_header("Authorization", f"Bearer {TOKEN}")
+    p_req.add_header("Accept", "application/vnd.github+json")
+    p_req.add_header("User-Agent", "FreePad-Release-Script")
+    p_req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(p_req) as p_resp:
+            print("Updated release details successfully.")
+    except Exception as pe:
+        print("Notice: could not patch release info:", pe)
+
 # 2. Get existing assets to avoid conflicts
 assets_url = f"https://api.github.com/repos/{REPO}/releases/{release_id}/assets"
 a_req = urllib.request.Request(assets_url)
