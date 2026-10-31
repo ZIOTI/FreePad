@@ -38,35 +38,32 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Pilote Micro Direct 64-bit Natif & Support Universel Discord VoIP"
-BODY = f"""# 🎉 FreePad {TAG} — Pilote Micro Direct 64-bit Natif & Support Universel Discord VoIP
+RELEASE_NAME = f"FreePad {TAG} — Nouvelle Interface Studio Premium (Non-IA), Responsive & Épurée"
+BODY = f"""# 🎉 FreePad {TAG} — Nouvelle Interface Studio Premium (Non-IA), Responsive & Épurée
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native et capture de clips instantanés (Instant Replay).
 
 ---
 
-### 🚀 Quoi de neuf dans la v1.3.7 ?
+### 🚀 Quoi de neuf dans la v1.3.8 ?
 
-#### 1. ⚙️ Exécution PowerShell 64-bit Native (Sysnative)
-* 🚀 **Accès direct au Registre 64-bit :** L'installeur NSIS et l'application FreePad utilisent désormais le canal `Sysnative` 64-bit de Windows pour configurer les périphériques audio (`MMDevices\\Audio\\Capture`) directement dans la ruche système native, éliminant tout blocage lié au pont 32-bit SysWOW64.
-* 🛡️ **Auto-élévation 64-bit :** Le script d'installation détecte l'architecture de l'OS et se relance automatiquement en 64-bit natif.
+#### 1. 🎨 Refonte Complète du Design (Style Studio Non-IA)
+* 🎧 **Esthétique Studio Hardware épurée :** Remplacement des boutons arc-en-ciel et des néons criards par une palette sombre graphite élégante (`#080a10`), des bordures soignées et une typographie moderne.
+* 📏 **100% Adapté aux fenêtres réduites :** Tout l'espace est optimisé. La barre de transport et les contrôles de volume occupent désormais une hauteur compacte, laissant plus de 70% de l'écran pour la grille de sons sans aucun débordement.
+* 👑 **Signature Fait par zioti intégrée :** Badge discret et prestigieux avec couronne dorée dans le bandeau supérieur et le mixeur inférieur.
 
-#### 2. 🎙️ Support Universel Discord VoIP (Mode Communications)
-* 🎧 **Compatible tous casques gaming :** Enregistrement simultané des modes `DEFAULT` et `COMMUNICATIONS` (`{{FC1CFC9B-B9D6-4CFA-B5E0-4BB2166878B2}}`) pour que Windows ne contourne jamais le filtre APO lors des appels vocaux Discord sur casques Logitech, Razer, Corsair, SteelSeries, HyperX et micros USB.
-* 📋 **Enregistrement AudioEngine APO & COM :** Enregistrement complet dans `AudioEngine\\AudioProcessingObjects` avec drapeaux de format et `regsvr32` natif.
+#### 2. 🎛️ Barre Studio & Capsule Instant Replay Unifiée
+* ✂️ **Clipper Discord compact :** Le déclencheur F8, la durée (5s/10s), l'état d'écoute et l'accès au dossier de clips sont désormais intégrés dans une seule capsule studio fluide.
+* 📂 **Navigation par onglets :** Accès direct et rangé à MyInstants, aux sons communautaires et au générateur vocal TTS.
 
-#### 3. 🔑 Permissions Windows Universelles (FR / EN & TrustedInstaller)
-* 🌐 **Compatibilité linguistique :** Remplacement des noms de groupes Windows localisés par des SIDs immuables (`*S-1-5-32-545` et `*S-1-5-11`), fonctionnant sur n'importe quelle version de Windows (Français, Anglais, etc.).
-* 🔓 **Déverrouillage TrustedInstaller :** Attribution automatique des privilèges système Win32 (`SetNamedSecurityInfo`) sur `FxProperties` pour garantir zéro erreur « Accès refusé » même sur PC clean install.
-
-#### 4. 💡 Conseil Réglage Discord Intégré
-* ⚠️ **Bandeau d'information & Paramètres :** Rappel indispensable pour désactiver la suppression de bruit Krisp et l'annulation d'écho dans Discord afin de garantir une diffusion limpide à 100% de volume.
+#### 3. 🧹 Allègement & Suppression du Voice Changer
+* 🎙️ **Suppression du modulateur de voix :** Suppression de la fonctionnalité de Voice Changer qui provoquait des bruits indésirables, recentrant FreePad à 100% sur sa fonction maîtresse : un soundboard ultra-rapide, propre et ultra-stable pour Discord et le gaming.
 
 ---
 
 ### 📥 Téléchargement & Mise à jour
-* **Via l'application :** Ouvre FreePad > Paramètres > clique sur **Rechercher les mises à jour** (ou attends la notification automatique). Après mise à jour, clique sur **🔄 Réparer / Réinstaller** dans les paramètres micro.
-* **Via l'installeur :** Télécharge **FreePad-Setup-{VERSION}.exe** ci-dessous pour une installation 100% propre avec élévation immédiate !
+* **Via l'application :** FreePad télécharge et installe automatiquement la version 1.3.8 en un clic.
+* **Via l'installeur :** Téléchargez **FreePad-Setup-{VERSION}.exe** ci-dessous pour une installation directe.
 """
 
 print(f"Publishing release {TAG} for {REPO}...")
