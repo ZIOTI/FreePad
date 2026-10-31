@@ -1,0 +1,45 @@
+name: Build & Test FreePad - Fait par zioti
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Installer (x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Web Frontend (Vite)
+        run: npm run build
+
+      - name: Build Electron Installer (NSIS x64)
+        run: npx electron-builder --win --x64 --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Unsigned Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreePad-Setup-Unsigned
+          path: release/*.exe
+          if-no-files-found: error
