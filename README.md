@@ -48,6 +48,16 @@ npm run dev
 
 ---
 
+## 📥 Téléchargements & Signature de Code
+
+Les versions exécutables officielles pour Windows (`FreePad Setup.exe`) sont téléchargeables sur la page des Releases :
+👉 **[Télécharger la dernière version de FreePad (GitHub Releases)](https://github.com/ZIOTI/FreePad/releases)**
+
+### 🛡️ Sécurité & Signature
+Free code signing provided by the [SignPath Foundation](https://signpath.org) and [SignPath.io](https://about.signpath.io). Les binaires officiels sont signés afin de garantir l'authenticité et l'intégrité du logiciel.
+
+---
+
 ## 🎙️ Diffusion Directe dans Discord & Jeux Vidéo (100% Sans Câble)
 
 FreePad utilise une **injection matérielle directe (APO)** dans votre vrai microphone :
