@@ -8,7 +8,12 @@ if exist "%WINDIR%\Sysnative\WindowsPowerShell\v1.0\powershell.exe" (
     set "PS_EXE=%WINDIR%\Sysnative\WindowsPowerShell\v1.0\powershell.exe"
 )
 
-"%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Diagnostic_FreePad.ps1"
+set "PS1_PATH=%~dp0scripts\Diagnostic_FreePad.ps1"
+if not exist "%PS1_PATH%" (
+    set "PS1_PATH=%~dp0Diagnostic_FreePad.ps1"
+)
+
+"%PS_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%PS1_PATH%"
 
 echo.
 pause
