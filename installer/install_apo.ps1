@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$Silent
 )
 
@@ -310,6 +310,39 @@ public class FreePadPrivilege {
         }
     }
 }
+
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+internal class MMDeviceEnumeratorComObject { }
+
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface IMMDeviceEnumerator {
+    int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr deviceCollection);
+    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+}
+
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface IMMDevice {
+    int Activate(ref Guid id, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object interfacePointer);
+    int OpenPropertyStore(int stgmAccess, out IntPtr properties);
+    int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
+    int GetState(out int state);
+}
+
+public class FreePadAudioEndpoints {
+    public static string GetDefaultCaptureGuid(int role) {
+        try {
+            var enumerator = (IMMDeviceEnumerator)(new MMDeviceEnumeratorComObject());
+            IMMDevice dev;
+            int hr = enumerator.GetDefaultAudioEndpoint(1, role, out dev);
+            if (hr == 0 && dev != null) {
+                string id;
+                dev.GetId(out id);
+                return id;
+            }
+        } catch {}
+        return null;
+    }
+}
 "@
 try {
     Add-Type -TypeDefinition $privCode -Language CSharp -ErrorAction SilentlyContinue
@@ -318,7 +351,36 @@ try {
 
 $baseCapture = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture"
 $captureDevices = @()
-$deviceNames = @{}
+$deviceNames = @()
+
+# Detection du vrai micro par defaut en priorite absolue (Fait par zioti)
+$rawConsoleId = [FreePadAudioEndpoints]::GetDefaultCaptureGuid(0)
+$rawCommId = [FreePadAudioEndpoints]::GetDefaultCaptureGuid(2)
+$defConsoleGuid = $null
+$defCommGuid = $null
+
+if ($rawConsoleId -match "\{([0-9a-fA-F\-]{36})\}") {
+    $defConsoleGuid = "{$($Matches[1])}"
+}
+if ($rawCommId -match "\{([0-9a-fA-F\-]{36})\}") {
+    $defCommGuid = "{$($Matches[1])}"
+}
+
+if ($defConsoleGuid) {
+    $captureDevices += $defConsoleGuid
+    $p = Get-ItemProperty -Path "$baseCapture\$defConsoleGuid\Properties" -ErrorAction SilentlyContinue
+    $dName = if ($p.'{a45c254e-df1c-4efd-8020-67d146a850e0},2') { $p.'{a45c254e-df1c-4efd-8020-67d146a850e0},2' } else { "Microphone Principal" }
+    $deviceNames[$defConsoleGuid] = $dName
+    Write-Host "      [*] Micro par defaut prioritaire detecte : $dName" -ForegroundColor Green
+}
+
+if ($defCommGuid -and ($captureDevices -notcontains $defCommGuid)) {
+    $captureDevices += $defCommGuid
+    $p = Get-ItemProperty -Path "$baseCapture\$defCommGuid\Properties" -ErrorAction SilentlyContinue
+    $dName = if ($p.'{a45c254e-df1c-4efd-8020-67d146a850e0},2') { $p.'{a45c254e-df1c-4efd-8020-67d146a850e0},2' } else { "Microphone Communications (Discord)" }
+    $deviceNames[$defCommGuid] = $dName
+    Write-Host "      [*] Micro communications VoIP detecte : $dName" -ForegroundColor Green
+}
 
 if (Test-Path $baseCapture) {
     Get-ChildItem $baseCapture | ForEach-Object {
@@ -333,6 +395,9 @@ if (Test-Path $baseCapture) {
             & reg.exe delete $regKey /v "{d3993a3f-99c2-4402-b5ec-a92a0367664b},7" /f /reg:64 2>&1 | Out-Null
             return
         }
+
+        # Ignorer si deja ajoute en priorite
+        if ($captureDevices -contains $devId) { return }
 
         $prop = Get-ItemProperty -Path "$baseCapture\$devId\Properties" -ErrorAction SilentlyContinue
         $name = $prop.'{a45c254e-df1c-4efd-8020-67d146a850e0},2'
@@ -350,8 +415,10 @@ if (Test-Path $baseCapture) {
         if ($isIgnored) { return }
 
         $dName = if ($name) { $name } else { $hwName }
-        $captureDevices += $devId
-        $deviceNames[$devId] = $dName
+        if ($captureDevices.Count -lt 6) {
+            $captureDevices += $devId
+            $deviceNames[$devId] = $dName
+        }
     }
 }
 
@@ -410,6 +477,9 @@ foreach ($devId in $captureDevices) {
     $regKey = "HKLM\$subKeyRel"
     & reg.exe add $regKey /v "{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},7" /t REG_SZ /d "{27384E53-9860-0AC3-9519-C60EBCAA2C71}" /f /reg:64 2>&1 | Out-Null
     & reg.exe add $regKey /v "{d3993a3f-99c2-4402-b5ec-a92a0367664b},7" /t REG_MULTI_SZ /d "{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}\0{FC1CFC9B-B9D6-4CFA-B5E0-4BB2166878B2}" /f /reg:64 2>&1 | Out-Null
+    
+    # Supprimer toute desactivation des ameliorations audio Windows (Disable_SysFx = 1)
+    & reg.exe delete $regKey /v "{1da5d803-d01f-4d68-af3b-3051d1f69d5b},5" /f /reg:64 2>&1 | Out-Null
 
     # Ecriture directe via PowerShell Set-ItemProperty
     if (Test-Path $psFxKey) {
