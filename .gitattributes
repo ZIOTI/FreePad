@@ -1,0 +1,4 @@
+# Force CRLF line endings for Windows batch and PowerShell scripts - Fait par zioti
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
