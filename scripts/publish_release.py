@@ -156,10 +156,12 @@ except Exception as e:
 upload_base = f"https://uploads.github.com/repos/{REPO}/releases/{release_id}/assets"
 
 setup_src = os.path.join(ROOT_DIR, "release", f"FreePad Setup {VERSION}.exe")
+blockmap_src = os.path.join(ROOT_DIR, "release", f"FreePad Setup {VERSION}.exe.blockmap")
 latest_yml = os.path.join(ROOT_DIR, "release", "latest.yml")
 
 assets_to_upload = [
     (setup_src, f"FreePad-Setup-{VERSION}.exe"),
+    (blockmap_src, f"FreePad-Setup-{VERSION}.exe.blockmap"),
     (latest_yml, "latest.yml")
 ]
 
