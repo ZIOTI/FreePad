@@ -214,8 +214,8 @@ export default function AiVoiceStudioPanel({ onAddToSoundboard }) {
     try {
       const speechRes = await generateSpeechAudio(rawText, overrideVoice, overrideEngine);
       if (speechRes && (speechRes.dataUrl || speechRes.filePath)) {
-        const audioSrc = speechRes.filePath || speechRes.dataUrl;
-        await soundEngine.playSound({
+        const audioSrc = speechRes.dataUrl || speechRes.filePath;
+        await soundEngine.play({
           id: `speech-${Date.now()}`,
           title: `Voix: ${rawText.slice(0, 20)}`,
           url: audioSrc,
@@ -250,10 +250,11 @@ export default function AiVoiceStudioPanel({ onAddToSoundboard }) {
       const sample = voice.samplePhrase || "Bonjour, voici ma voix naturelle.";
       const speechRes = await generateSpeechAudio(sample, voice, engine);
       if (speechRes && (speechRes.dataUrl || speechRes.filePath)) {
-        await soundEngine.playSound({
+        const audioSrc = speechRes.dataUrl || speechRes.filePath;
+        await soundEngine.play({
           id: `preview-${voice.id}`,
           title: `Preview: ${voice.name}`,
-          url: speechRes.filePath || speechRes.dataUrl,
+          url: audioSrc,
           volume: 0.9
         });
       }

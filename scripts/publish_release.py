@@ -38,14 +38,18 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Voix IA Neurales HD Studio, Zéro mot ajouté & Sélecteur de Moteur"
-BODY = f"""# 🎉 FreePad {TAG} — Voix IA Neurales HD Studio, Zéro mot ajouté & Sélecteur de Moteur
+RELEASE_NAME = f"FreePad {TAG} — Correctif Parler dans le Micro & Voix Neurales HD Studio"
+BODY = f"""# 🎉 FreePad {TAG} — Correctif Parler dans le Micro & Voix Neurales HD Studio
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native (100% sans câble virtuel).
 
 ---
 
 ### 🚀 Quoi de neuf dans la v{VERSION} ?
+
+#### 0. 🛠️ Correctif Audio Critique
+* 🎙️ **Résolution du déclencheur « Parler dans le micro » :** Correction de l'appel au moteur `SoundEngine.play` qui bloquait la lecture et l'injection immédiate des voix générées dans le microphone.
+* 🎧 **Aperçu des voix fonctionnel :** Le bouton « Écouter l'accent » joue désormais instantanément l'exemple audio dans votre casque.
 
 #### 1. 🌟 Vraies Voix IA Neurales Studio HD (100% Gratuites)
 * 🎙️ **Fin de la voix robotique par défaut :** FreePad intègre désormais en standard les moteurs vocaux **Microsoft Neural HD** ! Des voix humaines ultra-réalistes, avec intonations naturelles, souffle et timbre studio professionnel.

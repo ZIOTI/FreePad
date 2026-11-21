@@ -531,7 +531,7 @@ class SoundEngine {
       arrayBuffer = await response.arrayBuffer();
     }
 
-    const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+    const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer.slice(0));
     this.audioCache.set(url, audioBuffer);
     return audioBuffer;
   }
@@ -543,6 +543,10 @@ class SoundEngine {
         voiceChangerEngine.monitoringGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.015);
       } catch (e) {}
     }
+  }
+
+  async playSound(sound, startOffset = 0) {
+    return this.play(sound, startOffset);
   }
 
   async play(sound, startOffset = 0) {
