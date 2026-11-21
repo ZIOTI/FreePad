@@ -38,8 +38,8 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Studio Voix IA Multilingue, 11 Accents Culturels & Intégration ElevenLabs Pro"
-BODY = f"""# 🎉 FreePad {TAG} — Studio Voix IA Multilingue, 11 Accents Culturels & ElevenLabs Pro
+RELEASE_NAME = f"FreePad {TAG} — Voix IA Neurales HD Studio, Zéro mot ajouté & Sélecteur de Moteur"
+BODY = f"""# 🎉 FreePad {TAG} — Voix IA Neurales HD Studio, Zéro mot ajouté & Sélecteur de Moteur
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native (100% sans câble virtuel).
 
@@ -47,38 +47,41 @@ BODY = f"""# 🎉 FreePad {TAG} — Studio Voix IA Multilingue, 11 Accents Cultu
 
 ### 🚀 Quoi de neuf dans la v{VERSION} ?
 
-#### 1. 🎭 Studio Voix IA Multilingue & 11 Accents Culturels
-* 🌍 **11 Accents régionaux et internationaux :** Parlez dans votre microphone avec des accents ultra-réalistes et hilarants :
-  * 🇨🇬 **Congolais / Africain** (accent chantant, phonétique 'r' roulé, expressions cultes "dé", "eh ya mon frère")
-  * 🇮🇹 **Italien** (accent expressif "mamma mia", "ma qué bella jornada")
-  * 🇩🇪 **Allemand** (phonétique martelée "achtung", "natürlich", "ponjour")
-  * 🇨🇳 **Chinois** (permutation phonétique 'r' -> 'l', "ni hao", "tlès bien")
-  * 🇷🇺 **Russe** (voix ferme et puissante "da camarade", "direction goulag")
-  * 🇨🇦 **Québécois** (tournures authentiques "mon chum", "icitte", "c'est ben tiguidou")
-  * 🇫🇷 **Marseillais** (accent provençal "peuchère", "fada", "mon sang", "putain con")
-  * 🇬🇧 **British** (élégance distinguée "my dear", "splendid", "cheerio")
-  * 🇲🇦 **Maghrébin** (argot urbain "wallah", "khouya", "sah to the sah")
-  * 🇯🇵 **Anime / Waifu** (intonations japonaises "nani ?!", "omae wa mou shindeiru, baka")
-  * 🇫🇷 **Français Standard** (synthèse claire et fluide)
-* 🎚️ **Interrupteur d'argot :** Activez ou désactivez les expressions d'argot local pour ne conserver que l'intonation phonétique pure.
-* 🗣️ **Synthèse croisée multilingue :** Capacité unique de faire prononcer du français par des moteurs étrangers pour une fidélité d'accent incomparable.
+#### 1. 🌟 Vraies Voix IA Neurales Studio HD (100% Gratuites)
+* 🎙️ **Fin de la voix robotique par défaut :** FreePad intègre désormais en standard les moteurs vocaux **Microsoft Neural HD** ! Des voix humaines ultra-réalistes, avec intonations naturelles, souffle et timbre studio professionnel.
+* 🚫 **Zéro mot ajouté / Zéro stéréotype :** Plus aucun mot n'est inséré ou déformé ! Votre texte est prononcé **strictement mot pour mot** avec l'accent et la voix choisis.
 
-#### 2. 🌐 Traducteur Instantané 50+ Langues (100% Gratuit)
-* ⚡ **Traduction & Synthèse en 1 clic :** Tapez en français, choisissez votre langue cible (Japonais 🇯🇵, Anglais 🇬🇧, Espagnol 🇪🇸, Allemand 🇩🇪, Russe 🇷🇺, Arabe 🇸🇦, Chinois 🇨🇳, Coréen 🇰🇷, etc.) et laissez FreePad traduire et vocaliser instantanément la phrase avec la voix native du pays directement dans Discord ou votre jeu !
-* 🔑 **Zéro configuration requise :** Aucune clé API nécessaire pour la traduction et les voix globales.
+#### 2. 🎛️ Sélecteur de Moteur Vocal au Choix
+Vous gardez le contrôle total sur le moteur de synthèse :
+* 🌟 **Voix IA Microsoft Neural HD (Par défaut, Gratuit)** : La meilleure qualité vocale actuelle sans aucun compte ni clé API.
+* 🗣️ **Google Traduction (Classique)** : La voix robotique classique de Google Traduction reste disponible pour ceux qui préfèrent ce style rétro.
+* 💎 **ElevenLabs Pro** : Connectez votre clé API ElevenLabs pour vos voix clonées et personnalisées.
 
-#### 3. 💎 Intégration Native ElevenLabs Pro
-* 🎙️ **Vos voix IA ultra-réalistes :** Connectez votre clé API ElevenLabs pour synchroniser et injecter toutes vos voix personnalisées, clonées ou officielles (Adam, Rachel, Antoni, Josh, Bella...).
-* 🎛️ **Contrôles studio :** Réglages précis de la Stabilité et de la Similitude (Similarity Boost) avec le modèle neural `eleven_multilingual_v2`.
+#### 3. 🌍 Catalogue de 20 Voix & Accents Réalistes
+* 🇫🇷 **Voix Françaises Studio :**
+  * 👨 **Henri** (Homme Studio Pro, voix posée et naturelle)
+  * 👩 **Denise** (Femme Studio Douce et fluide)
+  * 👩 **Vivienne** (Femme Expressive HD)
+  * 👨 **Remy** (Homme Gamer / Dynamique)
+  * 👩 **Éloïse** (Femme Jeune & Dynamique)
+* 🇨🇦 🇧🇪 🇨🇭 **Accents Francophones Authentiques :**
+  * 🇨🇦 **Antoine & Sylvie** (Vrais accents québécois / canadiens)
+  * 🇧🇪 **Gérard & Charline** (Vrais accents belges)
+  * 🇨🇭 **Fabrice & Ariane** (Vrais accents suisses romands)
+* 🎭 **Accents Internationaux (Parle Français avec l'accent naturel sans mot ajouté) :**
+  * 🇮🇹 **Giuseppe** (Accent Italien authentique)
+  * 🇩🇪 **Christoph** (Accent Allemand authentique)
+  * 🇬🇧 **Ryan** (Accent Anglais / British)
+  * 🇺🇸 **Guy** (Accent Américain)
+  * 🇪🇸 **Alvaro** (Accent Espagnol)
+  * 🇷🇺 **Dmitry** (Accent Russe)
+  * 🇨🇳 **Yunxi** (Accent Chinois / Asiatique)
+  * 🇯🇵 **Keita** (Accent Japonais)
+  * 🇸🇦 **Shakir** (Accent Arabe)
+  * 🌍 **Rafiki** (Accent Africain)
 
-#### 4. ⚡ Expérience Gaming & Productivité
-* ⌨️ **Raccourci Entrée direct :** Tapez votre texte et appuyez sur `Entrée` pour l'envoyer instantanément dans le microphone.
-* 💾 **Enregistrement en bouton Soundboard :** Sauvegardez n'importe quelle réplique générée en bouton permanent sur votre grille FreePad.
-* 📜 **Historique récent interactif :** Rejouez immédiatement n'importe quelle phrase précédente d'un simple clic.
-* ✂️ **Chunking intelligent sans coupure :** Les longs textes sont automatiquement découpés le long de la ponctuation et réassemblés en un fichier audio continu sans latence.
-
-#### 5. 🛠️ Outil de Diagnostic Autonome Pilote Micro APO
-* 🩺 **Diagnostic_FreePad.bat inclus :** Outil autonome 1-fichier pour tester, vérifier et réparer en un clic l'injection micro APO sur votre vrai microphone actif sans ouvrir l'application.
+#### 4. 🌐 Traducteur 50+ Langues avec Voix Neurales Natives
+* Tapez en français, traduisez vers n'importe quelle langue (Japonais, Anglais, Espagnol, Allemand, Russe, Chinois, Coréen...) et parlez dans le micro avec la voix neurale native du pays !
 
 ---
 

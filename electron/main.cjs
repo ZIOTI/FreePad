@@ -638,14 +638,62 @@ objShell.ShellExecute "cmd.exe", "/c """"${batPath}""""", "", "runas", 1
 });
 
 // ==========================================
-// 2. MULTILINGUAL & ACCENTS TTS + TRANSLATE + ELEVENLABS (Fait par zioti)
+// 2. MULTILINGUAL & ACCENTS TTS (NEURAL & GOOGLE) + TRANSLATE + ELEVENLABS (Fait par zioti)
 // ==========================================
-ipcMain.handle('generate-tts', async (event, { text, lang = 'fr' }) => {
+let MsEdgeTTS = null;
+let OUTPUT_FORMAT = null;
+try {
+  const edgeModule = require('msedge-tts');
+  MsEdgeTTS = edgeModule.MsEdgeTTS;
+  OUTPUT_FORMAT = edgeModule.OUTPUT_FORMAT;
+} catch (e) {
+  console.warn('[TTS] MsEdgeTTS not loaded:', e.message);
+}
+
+ipcMain.handle('generate-tts', async (event, { text, voice = 'fr-FR-HenriNeural', lang = 'fr', engine = 'neural' }) => {
   try {
     if (!text || !text.trim()) throw new Error("Texte vide");
     const rawText = text.trim();
 
-    // Split text into chunks of at most 180 characters along punctuation or spaces
+    const ttsDir = path.join(app.getPath('userData'), 'sounds', 'tts');
+    if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
+
+    // 1. MOTEUR NEURAL MICROSOFT (Studio Réaliste HD - 100% Gratuit, Défaut)
+    if (engine === 'neural' && MsEdgeTTS) {
+      try {
+        const tts = new MsEdgeTTS();
+        await tts.setMetadata(voice || 'fr-FR-HenriNeural', OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+        const tempDir = path.join(ttsDir, 'temp_' + Date.now());
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+        const res = await tts.toFile(tempDir, rawText);
+        tts.close();
+
+        const buffer = fs.readFileSync(res.audioFilePath);
+        fs.rmSync(tempDir, { recursive: true, force: true });
+
+        const safeSnippet = rawText.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
+        const fileName = `neural_${voice}_${Date.now()}.mp3`;
+        const filePath = path.join(ttsDir, fileName);
+        fs.writeFileSync(filePath, buffer);
+
+        const base64 = buffer.toString('base64');
+        return {
+          success: true,
+          text: rawText,
+          engine: 'neural',
+          voice,
+          filePath,
+          dataUrl: `data:audio/mpeg;base64,${base64}`,
+          title: `🎙️ "${rawText.slice(0, 35)}"`
+        };
+      } catch (neuralErr) {
+        console.warn("[TTS] Edge Neural synthesis failed, falling back to Google:", neuralErr.message);
+        // Fallback to Google below
+      }
+    }
+
+    // 2. MOTEUR GOOGLE TRANSLATE (Optionnel ou Fallback)
     const chunks = [];
     if (rawText.length <= 180) {
       chunks.push(rawText);
@@ -687,22 +735,19 @@ ipcMain.handle('generate-tts', async (event, { text, lang = 'fr' }) => {
     if (buffers.length === 0) throw new Error("Aucun audio généré");
     const buffer = Buffer.concat(buffers);
 
-    const ttsDir = path.join(app.getPath('userData'), 'sounds', 'tts');
-    if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
-
     const safeSnippet = rawText.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
-    const fileName = `tts_${safeSnippet}_${Date.now()}.mp3`;
+    const fileName = `google_${safeSnippet}_${Date.now()}.mp3`;
     const filePath = path.join(ttsDir, fileName);
     fs.writeFileSync(filePath, buffer);
 
     const base64 = buffer.toString('base64');
-    const dataUrl = `data:audio/mpeg;base64,${base64}`;
-
     return {
       success: true,
       text: rawText,
+      engine: 'google',
+      lang,
       filePath,
-      dataUrl,
+      dataUrl: `data:audio/mpeg;base64,${base64}`,
       title: `🗣️ "${rawText.slice(0, 35)}"`
     };
   } catch (err) {
