@@ -32,7 +32,7 @@ import HotkeyModal from './components/HotkeyModal';
 import SettingsModal from './components/SettingsModal';
 import MyInstantsTab from './components/MyInstantsTab';
 import VoicemodTab from './components/VoicemodTab';
-import GoogleTtsPanel from './components/GoogleTtsPanel';
+import AiVoiceStudioPanel from './components/AiVoiceStudioPanel';
 import RemoteControlModal from './components/RemoteControlModal';
 import MediaImportModal from './components/MediaImportModal';
 import AudioTrimmerModal from './components/AudioTrimmerModal';
@@ -826,12 +826,12 @@ export default function App() {
             onClick={() => setViewMode('tts')}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               viewMode === 'tts'
-                ? 'bg-indigo-600 text-white shadow-xs'
+                ? 'bg-gradient-to-r from-pink-600 to-indigo-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
             }`}
           >
-            <Languages className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden md:inline">Voix TTS</span>
+            <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+            <span className="hidden md:inline">Studio Voix IA</span>
           </button>
         </nav>
 
@@ -1137,7 +1137,7 @@ export default function App() {
             existingSoundUrls={sounds.map(s => s.url)}
           />
         ) : viewMode === 'tts' ? (
-          <GoogleTtsPanel
+          <AiVoiceStudioPanel
             onAddToSoundboard={handleAddTtsSound}
           />
         ) : viewMode === 'grid' ? (

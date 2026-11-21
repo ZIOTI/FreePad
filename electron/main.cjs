@@ -638,28 +638,59 @@ objShell.ShellExecute "cmd.exe", "/c """"${batPath}""""", "", "runas", 1
 });
 
 // ==========================================
-// 2. GOOGLE TRANSLATE FRENCH FEMALE TTS
+// 2. MULTILINGUAL & ACCENTS TTS + TRANSLATE + ELEVENLABS (Fait par zioti)
 // ==========================================
 ipcMain.handle('generate-tts', async (event, { text, lang = 'fr' }) => {
   try {
     if (!text || !text.trim()) throw new Error("Texte vide");
-    const cleanText = text.trim().slice(0, 200);
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cleanText)}&tl=${lang}&client=tw-ob`;
+    const rawText = text.trim();
 
-    const resp = await fetch(ttsUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    // Split text into chunks of at most 180 characters along punctuation or spaces
+    const chunks = [];
+    if (rawText.length <= 180) {
+      chunks.push(rawText);
+    } else {
+      const sentences = rawText.match(/[^.!?\n,;]+[.!?\n,;]*|\S+/g) || [rawText];
+      let current = '';
+      for (const s of sentences) {
+        if ((current + ' ' + s).trim().length <= 180) {
+          current = (current + ' ' + s).trim();
+        } else {
+          if (current) chunks.push(current);
+          if (s.length > 180) {
+            for (let i = 0; i < s.length; i += 180) {
+              chunks.push(s.slice(i, i + 180));
+            }
+            current = '';
+          } else {
+            current = s;
+          }
+        }
       }
-    });
+      if (current) chunks.push(current);
+    }
 
-    if (!resp.ok) throw new Error(`Google TTS error: ${resp.status}`);
-    const arrayBuffer = await resp.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffers = [];
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk.trim())}&tl=${lang}&client=tw-ob`;
+      const resp = await fetch(ttsUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      if (!resp.ok) throw new Error(`Google TTS error: ${resp.status}`);
+      const arrayBuffer = await resp.arrayBuffer();
+      buffers.push(Buffer.from(arrayBuffer));
+    }
+
+    if (buffers.length === 0) throw new Error("Aucun audio généré");
+    const buffer = Buffer.concat(buffers);
 
     const ttsDir = path.join(app.getPath('userData'), 'sounds', 'tts');
     if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
 
-    const safeSnippet = cleanText.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
+    const safeSnippet = rawText.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
     const fileName = `tts_${safeSnippet}_${Date.now()}.mp3`;
     const filePath = path.join(ttsDir, fileName);
     fs.writeFileSync(filePath, buffer);
@@ -669,13 +700,112 @@ ipcMain.handle('generate-tts', async (event, { text, lang = 'fr' }) => {
 
     return {
       success: true,
-      text: cleanText,
+      text: rawText,
       filePath,
       dataUrl,
-      title: `🗣️ "${cleanText}"`
+      title: `🗣️ "${rawText.slice(0, 35)}"`
     };
   } catch (err) {
     console.error("TTS generation error:", err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// Translation API (Fast, Free, No API key required - Fait par zioti)
+ipcMain.handle('translate-text', async (event, { text, targetLang = 'en', sourceLang = 'auto' }) => {
+  try {
+    if (!text || !text.trim()) return { success: false, error: 'Texte vide' };
+    const cleanText = text.trim();
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(cleanText)}`;
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    if (!resp.ok) throw new Error(`Erreur traduction HTTP ${resp.status}`);
+    const json = await resp.json();
+    const translatedText = json[0].map(s => s[0]).join('');
+    return { success: true, originalText: cleanText, translatedText, targetLang };
+  } catch (err) {
+    console.error("Translation error:", err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// ElevenLabs Voices API (Fait par zioti)
+ipcMain.handle('elevenlabs-get-voices', async (event, { apiKey }) => {
+  try {
+    if (!apiKey || !apiKey.trim()) throw new Error("Clé API ElevenLabs manquante");
+    const resp = await fetch('https://api.elevenlabs.io/v1/voices', {
+      headers: {
+        'xi-api-key': apiKey.trim()
+      }
+    });
+    if (!resp.ok) {
+      const errJson = await resp.json().catch(() => ({}));
+      throw new Error(errJson.detail?.message || `Erreur ElevenLabs HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    return { success: true, voices: data.voices || [] };
+  } catch (err) {
+    console.error("ElevenLabs get voices error:", err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+// ElevenLabs TTS Synthesis API (Fait par zioti)
+ipcMain.handle('elevenlabs-generate-tts', async (event, { apiKey, voiceId, text, modelId = 'eleven_multilingual_v2', stability = 0.5, similarityBoost = 0.75 }) => {
+  try {
+    if (!apiKey || !apiKey.trim()) throw new Error("Clé API ElevenLabs requise");
+    if (!voiceId) throw new Error("ID de voix requis");
+    if (!text || !text.trim()) throw new Error("Texte vide");
+
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey.trim(),
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg'
+      },
+      body: JSON.stringify({
+        text: text.trim(),
+        model_id: modelId,
+        voice_settings: {
+          stability: Number(stability) || 0.5,
+          similarity_boost: Number(similarityBoost) || 0.75
+        }
+      })
+    });
+
+    if (!resp.ok) {
+      const errJson = await resp.json().catch(() => ({}));
+      throw new Error(errJson.detail?.message || `Erreur ElevenLabs HTTP ${resp.status}`);
+    }
+
+    const arrayBuffer = await resp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const ttsDir = path.join(app.getPath('userData'), 'sounds', 'tts');
+    if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
+
+    const safeSnippet = text.trim().toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 20);
+    const fileName = `11labs_${safeSnippet}_${Date.now()}.mp3`;
+    const filePath = path.join(ttsDir, fileName);
+    fs.writeFileSync(filePath, buffer);
+
+    const base64 = buffer.toString('base64');
+    const dataUrl = `data:audio/mpeg;base64,${base64}`;
+
+    return {
+      success: true,
+      text: text.trim(),
+      filePath,
+      dataUrl,
+      title: `💎 "${text.trim().slice(0, 30)}"`
+    };
+  } catch (err) {
+    console.error("ElevenLabs TTS error:", err.message);
     return { success: false, error: err.message };
   }
 });

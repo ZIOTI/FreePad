@@ -7,8 +7,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchAudio: (url) => ipcRenderer.invoke('fetch-audio', url),
   downloadSound: (opts) => ipcRenderer.invoke('download-sound', opts),
 
-  // Google Translate French Female Voice TTS
+  // Google Translate & Multilingual Voice TTS (Fait par zioti)
   generateTts: (opts) => ipcRenderer.invoke('generate-tts', opts),
+  translateText: (opts) => ipcRenderer.invoke('translate-text', opts),
+
+  // ElevenLabs Pro Neural TTS API (Fait par zioti)
+  getElevenLabsVoices: (opts) => ipcRenderer.invoke('elevenlabs-get-voices', opts),
+  generateElevenLabsTts: (opts) => ipcRenderer.invoke('elevenlabs-generate-tts', opts),
 
   // MyInstants Scraper API
   searchMyInstants: (opts) => ipcRenderer.invoke('search-myinstants', opts),
