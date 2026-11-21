@@ -38,32 +38,53 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Nouvelle Interface Studio Premium (Non-IA), Responsive & Épurée"
-BODY = f"""# 🎉 FreePad {TAG} — Nouvelle Interface Studio Premium (Non-IA), Responsive & Épurée
+RELEASE_NAME = f"FreePad {TAG} — Studio Voix IA Multilingue, 11 Accents Culturels & Intégration ElevenLabs Pro"
+BODY = f"""# 🎉 FreePad {TAG} — Studio Voix IA Multilingue, 11 Accents Culturels & ElevenLabs Pro
 
-**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native et capture de clips instantanés (Instant Replay).
-
----
-
-### 🚀 Quoi de neuf dans la v1.3.8 ?
-
-#### 1. 🎨 Refonte Complète du Design (Style Studio Non-IA)
-* 🎧 **Esthétique Studio Hardware épurée :** Remplacement des boutons arc-en-ciel et des néons criards par une palette sombre graphite élégante (`#080a10`), des bordures soignées et une typographie moderne.
-* 📏 **100% Adapté aux fenêtres réduites :** Tout l'espace est optimisé. La barre de transport et les contrôles de volume occupent désormais une hauteur compacte, laissant plus de 70% de l'écran pour la grille de sons sans aucun débordement.
-* 👑 **Signature Fait par zioti intégrée :** Badge discret et prestigieux avec couronne dorée dans le bandeau supérieur et le mixeur inférieur.
-
-#### 2. 🎛️ Barre Studio & Capsule Instant Replay Unifiée
-* ✂️ **Clipper Discord compact :** Le déclencheur F8, la durée (5s/10s), l'état d'écoute et l'accès au dossier de clips sont désormais intégrés dans une seule capsule studio fluide.
-* 📂 **Navigation par onglets :** Accès direct et rangé à MyInstants, aux sons communautaires et au générateur vocal TTS.
-
-#### 3. 🧹 Allègement & Suppression du Voice Changer
-* 🎙️ **Suppression du modulateur de voix :** Suppression de la fonctionnalité de Voice Changer qui provoquait des bruits indésirables, recentrant FreePad à 100% sur sa fonction maîtresse : un soundboard ultra-rapide, propre et ultra-stable pour Discord et le gaming.
+**Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native (100% sans câble virtuel).
 
 ---
 
-### 📥 Téléchargement & Mise à jour
-* **Via l'application :** FreePad télécharge et installe automatiquement la version 1.3.8 en un clic.
-* **Via l'installeur :** Téléchargez **FreePad-Setup-{VERSION}.exe** ci-dessous pour une installation directe.
+### 🚀 Quoi de neuf dans la v{VERSION} ?
+
+#### 1. 🎭 Studio Voix IA Multilingue & 11 Accents Culturels
+* 🌍 **11 Accents régionaux et internationaux :** Parlez dans votre microphone avec des accents ultra-réalistes et hilarants :
+  * 🇨🇬 **Congolais / Africain** (accent chantant, phonétique 'r' roulé, expressions cultes "dé", "eh ya mon frère")
+  * 🇮🇹 **Italien** (accent expressif "mamma mia", "ma qué bella jornada")
+  * 🇩🇪 **Allemand** (phonétique martelée "achtung", "natürlich", "ponjour")
+  * 🇨🇳 **Chinois** (permutation phonétique 'r' -> 'l', "ni hao", "tlès bien")
+  * 🇷🇺 **Russe** (voix ferme et puissante "da camarade", "direction goulag")
+  * 🇨🇦 **Québécois** (tournures authentiques "mon chum", "icitte", "c'est ben tiguidou")
+  * 🇫🇷 **Marseillais** (accent provençal "peuchère", "fada", "mon sang", "putain con")
+  * 🇬🇧 **British** (élégance distinguée "my dear", "splendid", "cheerio")
+  * 🇲🇦 **Maghrébin** (argot urbain "wallah", "khouya", "sah to the sah")
+  * 🇯🇵 **Anime / Waifu** (intonations japonaises "nani ?!", "omae wa mou shindeiru, baka")
+  * 🇫🇷 **Français Standard** (synthèse claire et fluide)
+* 🎚️ **Interrupteur d'argot :** Activez ou désactivez les expressions d'argot local pour ne conserver que l'intonation phonétique pure.
+* 🗣️ **Synthèse croisée multilingue :** Capacité unique de faire prononcer du français par des moteurs étrangers pour une fidélité d'accent incomparable.
+
+#### 2. 🌐 Traducteur Instantané 50+ Langues (100% Gratuit)
+* ⚡ **Traduction & Synthèse en 1 clic :** Tapez en français, choisissez votre langue cible (Japonais 🇯🇵, Anglais 🇬🇧, Espagnol 🇪🇸, Allemand 🇩🇪, Russe 🇷🇺, Arabe 🇸🇦, Chinois 🇨🇳, Coréen 🇰🇷, etc.) et laissez FreePad traduire et vocaliser instantanément la phrase avec la voix native du pays directement dans Discord ou votre jeu !
+* 🔑 **Zéro configuration requise :** Aucune clé API nécessaire pour la traduction et les voix globales.
+
+#### 3. 💎 Intégration Native ElevenLabs Pro
+* 🎙️ **Vos voix IA ultra-réalistes :** Connectez votre clé API ElevenLabs pour synchroniser et injecter toutes vos voix personnalisées, clonées ou officielles (Adam, Rachel, Antoni, Josh, Bella...).
+* 🎛️ **Contrôles studio :** Réglages précis de la Stabilité et de la Similitude (Similarity Boost) avec le modèle neural `eleven_multilingual_v2`.
+
+#### 4. ⚡ Expérience Gaming & Productivité
+* ⌨️ **Raccourci Entrée direct :** Tapez votre texte et appuyez sur `Entrée` pour l'envoyer instantanément dans le microphone.
+* 💾 **Enregistrement en bouton Soundboard :** Sauvegardez n'importe quelle réplique générée en bouton permanent sur votre grille FreePad.
+* 📜 **Historique récent interactif :** Rejouez immédiatement n'importe quelle phrase précédente d'un simple clic.
+* ✂️ **Chunking intelligent sans coupure :** Les longs textes sont automatiquement découpés le long de la ponctuation et réassemblés en un fichier audio continu sans latence.
+
+#### 5. 🛠️ Outil de Diagnostic Autonome Pilote Micro APO
+* 🩺 **Diagnostic_FreePad.bat inclus :** Outil autonome 1-fichier pour tester, vérifier et réparer en un clic l'injection micro APO sur votre vrai microphone actif sans ouvrir l'application.
+
+---
+
+### 📥 Téléchargement & Installation
+* **Mise à jour automatique :** Si FreePad est déjà installé, il détecte automatiquement la nouvelle mise à jour au lancement.
+* **Nouvelle installation :** Téléchargez **FreePad-Setup-{VERSION}.exe** ci-dessous et lancez l'installation.
 """
 
 print(f"Publishing release {TAG} for {REPO}...")
