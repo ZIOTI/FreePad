@@ -119,7 +119,7 @@ class FreePadApoBridge {
     static readonly object pcmLock = new object();
 
     // ==========================================
-    // WASAPI INSTANT REPLAY BUFFER (30 SECONDS)
+    // WASAPI INSTANT REPLAY BUFFER (30 SECONDS) - LOOPBACK & MICROPHONE
     // ==========================================
     static float[] replayRingL = null;
     static float[] replayRingR = null;
@@ -131,6 +131,19 @@ class FreePadApoBridge {
     static volatile bool isReplayRunning = false;
     static Thread replayThread = null;
     static readonly object replayLock = new object();
+
+    // WASAPI MICROPHONE CAPTURE BUFFER (30 SECONDS)
+    static float[] micRingL = null;
+    static float[] micRingR = null;
+    static int micCapacity = 0;
+    static int micWritePos = 0;
+    static long micTotalFrames = 0;
+    static int micSampleRate = 48000;
+    static int micChannels = 1;
+    static volatile bool isMicCaptureRunning = false;
+    static Thread micThread = null;
+    static readonly object micLock = new object();
+    static volatile bool includeMicInClips = true; // Enabled by default (Fait par zioti)
 
     static string logFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FreePad", "apo_bridge.log");
 
@@ -365,6 +378,12 @@ class FreePadApoBridge {
                 Name = "FreePadWasapiLoopback"
             };
             replayThread.Start();
+
+            micThread = new Thread(WasapiMicWorker) {
+                IsBackground = true,
+                Name = "FreePadWasapiMic"
+            };
+            micThread.Start();
         }
     }
 
@@ -505,7 +524,141 @@ class FreePadApoBridge {
         }
     }
 
-    static bool ClipReplayToWav(int seconds, string outWavPath) {
+    // ==========================================
+    // WASAPI MICROPHONE RECORDER (USER VOICE IN CLIPS - Fait par zioti)
+    // ==========================================
+    static void WasapiMicWorker() {
+        SafeLog("[FreePadMicCapture] Worker starting...");
+        while (isReplayRunning) {
+            try {
+                var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+                IMMDevice micDevice = null;
+                // Priority 1: eCommunications (Discord/VoIP assigned mic)
+                int hr = enumerator.GetDefaultAudioEndpoint(1 /* eCapture */, 1 /* eCommunications */, out micDevice);
+                if (hr != 0 || micDevice == null) {
+                    // Priority 2: eConsole (Standard default mic)
+                    hr = enumerator.GetDefaultAudioEndpoint(1 /* eCapture */, 0 /* eConsole */, out micDevice);
+                }
+
+                if (hr != 0 || micDevice == null) {
+                    SafeLog("[FreePadMicCapture] GetDefaultAudioEndpoint error 0x" + hr.ToString("X"));
+                    Thread.Sleep(2000);
+                    continue;
+                }
+
+                Guid iidAudioClient = new Guid("1CB9AD4C-DBFA-4c32-B178-C2F568A703B2");
+                object clientObj;
+                hr = micDevice.Activate(ref iidAudioClient, 1, IntPtr.Zero, out clientObj);
+                if (hr != 0 || clientObj == null) {
+                    SafeLog("[FreePadMicCapture] Activate IAudioClient error 0x" + hr.ToString("X"));
+                    Thread.Sleep(2000);
+                    continue;
+                }
+
+                var audioClient = (IAudioClient)clientObj;
+                IntPtr pMixFormat;
+                audioClient.GetMixFormat(out pMixFormat);
+
+                short ch = Marshal.ReadInt16(pMixFormat, 2);
+                int sr = Marshal.ReadInt32(pMixFormat, 4);
+                short bits = Marshal.ReadInt16(pMixFormat, 14);
+
+                lock (micLock) {
+                    micChannels = ch;
+                    micSampleRate = sr > 0 ? sr : 48000;
+                    micCapacity = micSampleRate * 30; // 30s rolling buffer
+                    micRingL = new float[micCapacity];
+                    micRingR = new float[micCapacity];
+                    micWritePos = 0;
+                    micTotalFrames = 0;
+                }
+
+                SafeLog(string.Format("[FreePadMicCapture] Initializing WASAPI Mic (CH={0}, SR={1}, Bits={2})...", ch, sr, bits));
+
+                Guid sessionGuid = Guid.Empty;
+                hr = audioClient.Initialize(0 /* AUDCLNT_SHAREMODE_SHARED */, 0 /* NO LOOPBACK */, 10000000 /* 1s */, 0, pMixFormat, ref sessionGuid);
+                if (hr != 0) {
+                    SafeLog("[FreePadMicCapture] Initialize error 0x" + hr.ToString("X"));
+                    Thread.Sleep(2000);
+                    continue;
+                }
+
+                Guid iidCapture = new Guid("C8ADBD64-E71E-48A0-A4DE-185C395CD317");
+                object captureObj;
+                hr = audioClient.GetService(iidCapture, out captureObj);
+                if (hr != 0 || captureObj == null) {
+                    SafeLog("[FreePadMicCapture] GetService IAudioCaptureClient error 0x" + hr.ToString("X"));
+                    Thread.Sleep(2000);
+                    continue;
+                }
+
+                var capture = (IAudioCaptureClient)captureObj;
+                hr = audioClient.Start();
+                if (hr != 0) {
+                    SafeLog("[FreePadMicCapture] audioClient.Start error 0x" + hr.ToString("X"));
+                    Thread.Sleep(2000);
+                    continue;
+                }
+
+                isMicCaptureRunning = true;
+                SafeLog("[FreePadMicCapture] Actively recording rolling 30s mic buffer!");
+
+                while (isReplayRunning) {
+                    uint packetSize;
+                    hr = capture.GetNextPacketSize(out packetSize);
+                    if (hr != 0 || packetSize == 0) {
+                        Thread.Sleep(8);
+                        continue;
+                    }
+
+                    IntPtr pData;
+                    uint numFrames;
+                    uint flags;
+                    ulong devPos, qpcPos;
+                    hr = capture.GetBuffer(out pData, out numFrames, out flags, out devPos, out qpcPos);
+                    if (hr == 0 && pData != IntPtr.Zero) {
+                        bool isSilent = (flags & 1) != 0;
+
+                        unsafe {
+                            float* pFloat = (float*)pData.ToPointer();
+                            lock (micLock) {
+                                for (uint i = 0; i < numFrames; i++) {
+                                    float valL = 0f;
+                                    float valR = 0f;
+
+                                    if (!isSilent) {
+                                        if (ch >= 2) {
+                                            valL = pFloat[i * ch + 0];
+                                            valR = pFloat[i * ch + 1];
+                                        } else {
+                                            valL = pFloat[i];
+                                            valR = pFloat[i];
+                                        }
+                                    }
+
+                                    micRingL[micWritePos] = valL;
+                                    micRingR[micWritePos] = valR;
+                                    micWritePos = (micWritePos + 1) % micCapacity;
+                                    micTotalFrames++;
+                                }
+                            }
+                        }
+
+                        capture.ReleaseBuffer(numFrames);
+                    }
+                }
+
+                audioClient.Stop();
+                isMicCaptureRunning = false;
+                SafeLog("[FreePadMicCapture] Worker stopped.");
+            } catch (Exception ex) {
+                SafeLog("[FreePadMicCapture] Worker error: " + ex.Message);
+                Thread.Sleep(2000);
+            }
+        }
+    }
+
+    static bool ClipReplayToWav(int seconds, string outWavPath, bool withMic = true) {
         lock (replayLock) {
             if (!isReplayRunning || replayRingL == null || replayTotalFrames == 0) {
                 SafeLog("[FreePadLoopback] Clip error: Loopback not running or no frames yet");
@@ -526,26 +679,54 @@ class FreePadApoBridge {
                 float[] sliceR = new float[framesToExtract];
 
                 int readPos = (replayWritePos - framesToExtract + replayCapacity) % replayCapacity;
-                float peak = 0f;
-
                 for (int i = 0; i < framesToExtract; i++) {
-                    float sL = replayRingL[readPos];
-                    float sR = replayRingR[readPos];
-                    sliceL[i] = sL;
-                    sliceR[i] = sR;
-
-                    float absL = Math.Abs(sL);
-                    float absR = Math.Abs(sR);
-                    if (absL > peak) peak = absL;
-                    if (absR > peak) peak = absR;
-
+                    sliceL[i] = replayRingL[readPos];
+                    sliceR[i] = replayRingR[readPos];
                     readPos = (readPos + 1) % replayCapacity;
                 }
 
-                // Volume boost if the speech in Discord is quiet
+                // Mix in User's Microphone if requested and available! (Fait par zioti)
+                if (withMic && isMicCaptureRunning && micRingL != null && micTotalFrames > 0) {
+                    lock (micLock) {
+                        int mSr = micSampleRate > 0 ? micSampleRate : 48000;
+                        long micMaxHistory = Math.Min(micTotalFrames, (long)micCapacity);
+
+                        for (int i = 0; i < framesToExtract; i++) {
+                            // Calculate time in seconds from the end of the clip (instant of F8)
+                            int fromEnd = (framesToExtract - 1) - i;
+                            int micOffsetFromEnd = (int)((double)fromEnd * (double)mSr / (double)sampleRate);
+
+                            if (micOffsetFromEnd < micMaxHistory) {
+                                int mPos = (micWritePos - 1 - micOffsetFromEnd);
+                                while (mPos < 0) mPos += micCapacity;
+                                mPos = mPos % micCapacity;
+
+                                float micValL = micRingL[mPos];
+                                float micValR = micRingR[mPos];
+
+                                // Mix user mic directly with loopback (Discord/Game)
+                                sliceL[i] += micValL;
+                                sliceR[i] += micValR;
+                            }
+                        }
+                        SafeLog(string.Format("[FreePadLoopback] Mixed microphone into clip (exact time-aligned, {0} frames)!", framesToExtract));
+                    }
+                }
+
+                float peak = 0f;
+                for (int i = 0; i < framesToExtract; i++) {
+                    float absL = Math.Abs(sliceL[i]);
+                    float absR = Math.Abs(sliceR[i]);
+                    if (absL > peak) peak = absL;
+                    if (absR > peak) peak = absR;
+                }
+
+                // Volume boost if the speech in Discord is quiet, plus brickwall limiter
                 float gain = 1.0f;
                 if (peak > 0.02f && peak < 0.85f) {
                     gain = Math.Min(2.5f, 0.92f / peak);
+                } else if (peak > 1.0f) {
+                    gain = 0.95f / peak;
                 }
 
                 string dir = Path.GetDirectoryName(outWavPath);
@@ -587,7 +768,7 @@ class FreePadApoBridge {
                     }
                 }
 
-                SafeLog("[FreePadLoopback] Saved " + seconds + "s clip to " + outWavPath + " (" + new FileInfo(outWavPath).Length + " bytes)");
+                SafeLog("[FreePadLoopback] Saved " + seconds + "s clip to " + outWavPath + " (withMic=" + withMic + ", " + new FileInfo(outWavPath).Length + " bytes)");
                 return true;
             } catch (Exception ex) {
                 SafeLog("[FreePadLoopback] Clip exception: " + ex.Message);
@@ -702,21 +883,56 @@ class FreePadApoBridge {
                             ? (double)Math.Min(replayTotalFrames, (long)replayCapacity) / replaySampleRate
                             : 0.0;
                         string json = string.Format(
-                            "{{\"active\":{0},\"buffered\":{1:0.0},\"sampleRate\":{2},\"channels\":{3}}}",
+                            "{{\"active\":{0},\"buffered\":{1:0.0},\"sampleRate\":{2},\"channels\":{3},\"includeMic\":{4},\"isMicActive\":{5}}}",
                             isReplayRunning ? "true" : "false",
                             bufferedSec.ToString("0.0", CultureInfo.InvariantCulture),
                             replaySampleRate,
-                            replayChannels
+                            replayChannels,
+                            includeMicInClips ? "true" : "false",
+                            isMicCaptureRunning ? "true" : "false"
                         );
                         writer.WriteLine(json);
                     }
+                    else if (line.StartsWith("SET_REPLAY_INCLUDE_MIC ")) {
+                        string arg = line.Substring(23).Trim();
+                        includeMicInClips = (arg == "1" || arg.ToLower() == "true");
+                        SafeLog("[FreePadApoBridge] includeMicInClips set to " + (includeMicInClips ? "1" : "0"));
+                        writer.WriteLine("MIC_IN_REPLAY_SET " + (includeMicInClips ? "1" : "0"));
+                    }
                     else if (line.StartsWith("CLIP_REPLAY ")) {
-                        // Format: CLIP_REPLAY <seconds> <outputFilePath>
-                        string[] parts = line.Substring(12).Split(new char[] { ' ' }, 2);
-                        int sec = int.Parse(parts[0]);
-                        string outPath = parts[1].Trim();
+                        // Format: CLIP_REPLAY <seconds> <outputFilePath> [withMic] OR CLIP_REPLAY <seconds> <withMic> <outputFilePath>
+                        string payload = line.Substring(12).Trim();
+                        int sec = 5;
+                        bool withMic = includeMicInClips;
+                        string outPath = "";
 
-                        bool ok = ClipReplayToWav(sec, outPath);
+                        int firstSpace = payload.IndexOf(' ');
+                        if (firstSpace > 0) {
+                            int.TryParse(payload.Substring(0, firstSpace), out sec);
+                            payload = payload.Substring(firstSpace + 1).Trim();
+
+                            // Check if next token is 0 or 1 (new format: CLIP_REPLAY <sec> <withMic> <path>)
+                            if (payload.Length >= 2 && (payload[0] == '0' || payload[0] == '1') && payload[1] == ' ') {
+                                withMic = (payload[0] == '1');
+                                outPath = payload.Substring(2).Trim().Trim('"');
+                            }
+                            // Check if last token is " 0" or " 1" (format: CLIP_REPLAY <sec> <path> <withMic>)
+                            else if (payload.EndsWith(" 1")) {
+                                withMic = true;
+                                outPath = payload.Substring(0, payload.Length - 2).Trim().Trim('"');
+                            }
+                            else if (payload.EndsWith(" 0")) {
+                                withMic = false;
+                                outPath = payload.Substring(0, payload.Length - 2).Trim().Trim('"');
+                            }
+                            else {
+                                outPath = payload.Trim().Trim('"');
+                            }
+                        } else {
+                            int.TryParse(payload, out sec);
+                        }
+
+                        bool ok = ClipReplayToWav(sec, outPath, withMic);
                         writer.WriteLine(ok ? "CLIP_OK " + outPath : "CLIP_FAILED");
                     }
                     else if (line.StartsWith("PLAY_PCM ")) {

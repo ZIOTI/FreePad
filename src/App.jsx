@@ -21,7 +21,9 @@ import {
   Zap,
   Smartphone,
   SquarePlay,
-  Download
+  Download,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import soundEngine from './audio/SoundEngine';
 import audioClipRecorder from './audio/AudioClipRecorder';
@@ -138,6 +140,9 @@ export default function App() {
   const [isReplayListening, setIsReplayListening] = useState(false);
   const [clipDuration, setClipDuration] = useState(5); // 5s or 10s
   const [replaySource, setReplaySource] = useState('loopback'); // 'loopback' | 'mic'
+  const [includeMicInClip, setIncludeMicInClip] = useState(() => {
+    return localStorage.getItem('freepad_clip_include_mic') !== 'false';
+  });
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
 
@@ -441,6 +446,18 @@ export default function App() {
       setIsReplayListening(false);
       showToast("Erreur écoute audio : " + (err.message || err), "error");
     }
+  };
+
+  const handleToggleIncludeMicInClip = () => {
+    const nextVal = !includeMicInClip;
+    setIncludeMicInClip(nextVal);
+    audioClipRecorder.setIncludeMic(nextVal);
+    showToast(
+      nextVal
+        ? "Microphone activé : votre voix sera incluse dans les clips."
+        : "Microphone coupé : seul le flux Discord / jeu sera capturé.",
+      "info"
+    );
   };
 
   const handleInstantClip = async (seconds = 5) => {
@@ -1063,6 +1080,33 @@ export default function App() {
                 </button>
               </div>
 
+              {/* Toggle user voice in clips (Fait par zioti) */}
+              <button
+                onClick={handleToggleIncludeMicInClip}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  includeMicInClip
+                    ? 'text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30'
+                    : 'text-slate-500 hover:text-slate-300 bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04]'
+                }`}
+                title={
+                  includeMicInClip
+                    ? "Ma voix (micro) est INCLUSE dans le clip. Cliquez pour la couper."
+                    : "Ma voix (micro) est COUPÉE du clip. Cliquez pour l'inclure."
+                }
+              >
+                {includeMicInClip ? (
+                  <>
+                    <Mic className="w-3 h-3 text-emerald-400" />
+                    <span className="hidden sm:inline">Ma voix</span>
+                  </>
+                ) : (
+                  <>
+                    <MicOff className="w-3 h-3 text-slate-500" />
+                    <span className="hidden sm:inline text-slate-500 line-through">Ma voix</span>
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={() => handleInstantClip(clipDuration)}
                 className="px-2.5 py-1 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-xs"
@@ -1222,6 +1266,8 @@ export default function App() {
         setInjectionMode={setInjectionMode}
         loudnessBoost={loudnessBoost}
         setLoudnessBoost={setLoudnessBoost}
+        includeMicInClip={includeMicInClip}
+        onToggleIncludeMicInClip={handleToggleIncludeMicInClip}
       />
 
       <RemoteControlModal

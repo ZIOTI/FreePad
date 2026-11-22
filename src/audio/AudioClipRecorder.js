@@ -39,6 +39,7 @@ class AudioClipRecorder {
     this.sourceType = 'loopback'; // 'loopback' (Discord/System) or 'mic'
     this.selectedDeviceId = null;
     this.onStatusChange = null;
+    this.includeMic = typeof window !== 'undefined' && window.localStorage ? (localStorage.getItem('freepad_clip_include_mic') !== 'false') : true;
 
     // Mic fallback stream
     this.micStream = null;
@@ -48,6 +49,19 @@ class AudioClipRecorder {
     this.ringRight = null;
     this.writeIndex = 0;
     this.totalSamples = 0;
+  }
+
+  setIncludeMic(enabled) {
+    this.includeMic = !!enabled;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('freepad_clip_include_mic', this.includeMic ? 'true' : 'false');
+      }
+    } catch (e) {}
+
+    if (window.electronAPI?.setReplayIncludeMic) {
+      window.electronAPI.setReplayIncludeMic({ includeMic: this.includeMic }).catch(() => {});
+    }
   }
 
   setStatus(newStatus) {
@@ -185,7 +199,8 @@ class AudioClipRecorder {
 
         const res = await window.electronAPI.clipInstantReplay({
           seconds,
-          title
+          title,
+          includeMic: this.includeMic
         });
 
         if (!res.success) {

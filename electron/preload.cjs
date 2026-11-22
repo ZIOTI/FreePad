@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startInstantReplay: () => ipcRenderer.invoke('start-instant-replay'),
   stopInstantReplay: () => ipcRenderer.invoke('stop-instant-replay'),
   getReplayStatus: () => ipcRenderer.invoke('get-replay-status'),
+  setReplayIncludeMic: (opts) => ipcRenderer.invoke('set-replay-include-mic', opts),
   saveRecordedClip: (opts) => ipcRenderer.invoke('save-recorded-clip', opts),
   setReplayHotkey: (opts) => ipcRenderer.invoke('set-replay-hotkey', opts),
   onTriggerInstantReplay: (callback) => {

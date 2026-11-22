@@ -3,6 +3,7 @@ import {
   Settings,
   X,
   Mic,
+  MicOff,
   Volume2,
   Upload,
   Download,
@@ -45,7 +46,9 @@ export default function SettingsModal({
   injectionMode = 'apo',
   setInjectionMode,
   loudnessBoost = 1.3,
-  setLoudnessBoost
+  setLoudnessBoost,
+  includeMicInClip = true,
+  onToggleIncludeMicInClip
 }) {
   const [micLevel, setMicLevel] = useState(0);
   const [apoStatus, setApoStatus] = useState({ checked: false, isAvailable: false, details: null });
@@ -557,20 +560,56 @@ export default function SettingsModal({
           </div>
         </div>
 
-        {/* INSTANT REPLAY INFO */}
-        <div className="bg-gradient-to-r from-rose-950/30 via-indigo-950/20 to-slate-900/40 p-3.5 rounded-xl border border-rose-500/30 flex items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-white mb-0.5">
-              <Scissors className="w-4 h-4 text-rose-400" />
-              <span>Enregistreur Instantané Discord (Touche F8)</span>
+        {/* INSTANT REPLAY INFO & USER VOICE TOGGLE (Fait par zioti) */}
+        <div className="bg-gradient-to-r from-rose-950/30 via-indigo-950/20 to-slate-900/40 p-3.5 rounded-xl border border-rose-500/30 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-bold text-white mb-0.5">
+                <Scissors className="w-4 h-4 text-rose-400" />
+                <span>Enregistreur Instantané Discord (Touche F8)</span>
+              </div>
+              <p className="text-[10px] text-slate-400">
+                Garde en mémoire les 30 dernières secondes du flux Discord et de vos jeux. Dès qu'un pote bégaye ou sort une dinguerie, appuie sur F8 pour lui rebalancer direct !
+              </p>
             </div>
-            <p className="text-[10px] text-slate-400">
-              Garde en mémoire les 30 dernières secondes de ce que tes potes disent dans l'appel. Dès qu'un pote bégaye ou sort une dinguerie, appuie sur F8 pour lui rebalancer direct !
-            </p>
+            <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 shrink-0">
+              F8 (Global)
+            </span>
           </div>
-          <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 shrink-0">
-            F8 (Global)
-          </span>
+
+          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {includeMicInClip ? (
+                <div className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                  <Mic className="w-4 h-4" />
+                </div>
+              ) : (
+                <div className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-500">
+                  <MicOff className="w-4 h-4" />
+                </div>
+              )}
+              <div>
+                <div className="text-xs font-semibold text-slate-200">
+                  Inclure ma propre voix (micro) dans les clips
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {includeMicInClip
+                    ? "Activé : votre micro physique est mixé en temps réel avec le son Discord / jeu."
+                    : "Désactivé : seul le son du jeu et des autres personnes sur Discord est enregistré."}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => onToggleIncludeMicInClip && onToggleIncludeMicInClip()}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                includeMicInClip
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+              }`}
+            >
+              {includeMicInClip ? "Activé" : "Désactivé"}
+            </button>
+          </div>
         </div>
 
         {/* APP VERSION, BRANDING & UPDATER */}

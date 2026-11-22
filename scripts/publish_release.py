@@ -38,8 +38,8 @@ if not TOKEN:
     print("ERROR: GitHub token not found. Please set GITHUB_TOKEN or authenticate git.")
     sys.exit(1)
 
-RELEASE_NAME = f"FreePad {TAG} — Correctif Parler dans le Micro & Voix Neurales HD Studio"
-BODY = f"""# 🎉 FreePad {TAG} — Correctif Parler dans le Micro & Voix Neurales HD Studio
+RELEASE_NAME = f"FreePad {TAG} — Voix Micro dans les Clips & Toggle On/Off Instant Replay"
+BODY = f"""# 🎉 FreePad {TAG} — Voix Micro dans les Clips & Toggle On/Off Instant Replay
 
 **Fait par zioti** — Le soundboard moderne, libre et open-source pour Windows avec injection micro native (100% sans câble virtuel).
 
@@ -47,19 +47,24 @@ BODY = f"""# 🎉 FreePad {TAG} — Correctif Parler dans le Micro & Voix Neural
 
 ### 🚀 Quoi de neuf dans la v{VERSION} ?
 
-#### 0. 🛠️ Correctif Audio Critique
-* 🎙️ **Résolution du déclencheur « Parler dans le micro » :** Correction de l'appel au moteur `SoundEngine.play` qui bloquait la lecture et l'injection immédiate des voix générées dans le microphone.
-* 🎧 **Aperçu des voix fonctionnel :** Le bouton « Écouter l'accent » joue désormais instantanément l'exemple audio dans votre casque.
+#### 🎙️ 1. Entendez votre propre voix dans vos Clips (Instant Replay F8) !
+* 🔥 **Capture bi-directionnelle simultanée :** L'enregistreur instantané capture désormais non seulement les voix de vos potes sur Discord et le son de vos jeux, mais **mixe également votre propre voix** venant directement de votre microphone physique !
+* ⏱️ **Synchronisation temporelle parfaite :** Le mixage WASAPI natif synchronise à la milliseconde près votre micro et le flux audio de vos écouteurs, avec égalisation automatique des volumes et limiteur anti-saturation.
 
-#### 1. 🌟 Vraies Voix IA Neurales Studio HD (100% Gratuites)
-* 🎙️ **Fin de la voix robotique par défaut :** FreePad intègre désormais en standard les moteurs vocaux **Microsoft Neural HD** ! Des voix humaines ultra-réalistes, avec intonations naturelles, souffle et timbre studio professionnel.
-* 🚫 **Zéro mot ajouté / Zéro stéréotype :** Plus aucun mot n'est inséré ou déformé ! Votre texte est prononcé **strictement mot pour mot** avec l'accent et la voix choisis.
+#### 🎛️ 2. Bouton Toggle On/Off pour couper ou inclure son micro à volonté
+* 🔘 **Bouton capsule dans la barre d'outils :** Un bouton dédié « Ma voix » permet d'activer ou de couper votre microphone dans les clips en un seul clic !
+  * 🟢 **Vert (Activé) :** Votre voix est enregistrée dans le clip en même temps que vos potes.
+  * ⚪ **Grisé / Barré (Désactivé) :** Seul le son de Discord et du jeu est enregistré, votre voix reste coupée.
+* ⚙️ **Option dans les paramètres :** Retrouvez également le commutateur dans la fenêtre Paramètres > Enregistreur Instantané.
+* 💾 **Mémorisation automatique :** Votre préférence est automatiquement sauvegardée sur votre PC.
 
-#### 2. 🎛️ Sélecteur de Moteur Vocal au Choix
-Vous gardez le contrôle total sur le moteur de synthèse :
-* 🌟 **Voix IA Microsoft Neural HD (Par défaut, Gratuit)** : La meilleure qualité vocale actuelle sans aucun compte ni clé API.
-* 🗣️ **Google Traduction (Classique)** : La voix robotique classique de Google Traduction reste disponible pour ceux qui préfèrent ce style rétro.
-* 💎 **ElevenLabs Pro** : Connectez votre clé API ElevenLabs pour vos voix clonées et personnalisées.
+#### 🌟 3. Rappel des Nouveautés Voix IA Neurales HD (Studio)
+* 🎙️ Voix humaines ultra-réalistes Microsoft Neural HD gratuites sans compte ni clé API.
+* 🚫 Strictement aucun mot parasite ou stéréotype ajouté, prononciation fidèle mot pour mot.
+* 🎛️ Sélecteur de moteur vocal (Microsoft Neural HD, Google Traduction classique, ElevenLabs Pro).
+* 🌍 Catalogue complet de 20 voix et accents (Français, Québécois, Belge, Suisse, Italien, Allemand, Russe, etc.).
+
+---
 
 #### 3. 🌍 Catalogue de 20 Voix & Accents Réalistes
 * 🇫🇷 **Voix Françaises Studio :**

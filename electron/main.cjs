@@ -1086,7 +1086,7 @@ ipcMain.handle('get-replay-status', async () => {
   return { success: false, active: false };
 });
 
-ipcMain.handle('clip-instant-replay', async (event, { seconds = 5, title = null }) => {
+ipcMain.handle('clip-instant-replay', async (event, { seconds = 5, title = null, includeMic = true }) => {
   try {
     const clipsDir = path.join(app.getPath('userData'), 'sounds', 'clips');
     if (!fs.existsSync(clipsDir)) {
@@ -1101,8 +1101,9 @@ ipcMain.handle('clip-instant-replay', async (event, { seconds = 5, title = null 
     const fileName = `${safeTitle}_${timestamp}.wav`;
     const filePath = path.join(clipsDir, fileName);
 
-    // Call native Windows WASAPI loopback engine
-    const res = await sendApoCommand(`CLIP_REPLAY ${seconds} ${filePath}`);
+    const micFlag = (includeMic !== false) ? 1 : 0;
+    // Call native Windows WASAPI loopback engine (mixes mic if micFlag is 1 - Fait par zioti)
+    const res = await sendApoCommand(`CLIP_REPLAY ${seconds} ${filePath} ${micFlag}`);
     if (res.success && res.response && res.response.startsWith('CLIP_OK')) {
       const buffer = fs.readFileSync(filePath);
       const base64Data = buffer.toString('base64');
@@ -1116,7 +1117,8 @@ ipcMain.handle('clip-instant-replay', async (event, { seconds = 5, title = null 
         filePath,
         dataUrl,
         title: title || `🗣️ Clip Discord ${new Date().toLocaleTimeString('fr-FR')}`,
-        duration: durationFormatted
+        duration: durationFormatted,
+        includedMic: includeMic !== false
       };
     } else {
       return { success: false, error: res.response || res.error || "Échec capture loopback" };
@@ -1124,6 +1126,15 @@ ipcMain.handle('clip-instant-replay', async (event, { seconds = 5, title = null 
   } catch (err) {
     console.error('clip-instant-replay error:', err);
     return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('set-replay-include-mic', async (event, { includeMic = true }) => {
+  try {
+    const res = await sendApoCommand(`SET_REPLAY_INCLUDE_MIC ${includeMic ? 1 : 0}`);
+    return { success: res.success };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 });
 
